@@ -25,6 +25,7 @@ export const useAuth = () => {
       dispatch(loginSuccess(result));
       return { success: true };
     } catch (error: any) {
+      console.log('Auth hook error details:', error);
       dispatch(loginFailure(error.message));
       return { success: false, error: error.message };
     }

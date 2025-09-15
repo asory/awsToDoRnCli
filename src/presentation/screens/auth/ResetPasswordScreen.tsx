@@ -7,24 +7,28 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
-import { validateRegistrationForm } from '../../../shared/utils/validation';
+import { validateResetPasswordForm } from '../../../shared/utils/validation';
 
-type RegisterScreenNavigationProp = StackNavigationProp<
+type ResetPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
-  'Register'
+  'ResetPassword'
 >;
 
-export const RegisterScreen: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+type ResetPasswordScreenRouteProp = RouteProp<
+  AuthStackParamList,
+  'ResetPassword'
+>;
+
+export const ResetPasswordScreen: React.FC = () => {
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [codeError, setCodeError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -32,48 +36,49 @@ export const RegisterScreen: React.FC = () => {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false);
 
-  const navigation = useNavigation<RegisterScreenNavigationProp>();
-  const { register } = useAuth();
+  const navigation = useNavigation<ResetPasswordScreenNavigationProp>();
+  const route = useRoute<ResetPasswordScreenRouteProp>();
+  const { confirmForgotPassword } = useAuth();
+
+  const email = route.params?.email || '';
 
   const validateForm = () => {
-    const validation = validateRegistrationForm(
-      email,
-      password,
+    const validation = validateResetPasswordForm(
+      code,
+      newPassword,
       confirmPassword,
     );
 
-    setEmailError(validation.errors.email || '');
-    setPasswordError(validation.errors.password || '');
+    setCodeError(validation.errors.code || '');
+    setPasswordError(validation.errors.newPassword || '');
     setConfirmPasswordError(validation.errors.confirmPassword || '');
 
     return validation.isValid;
   };
 
-  const handleRegister = async () => {
+  const handleResetPassword = async () => {
     if (!validateForm()) return;
 
     setIsLoading(true);
     try {
-      const result = await register({ email, password, username: email });
+      const result = await confirmForgotPassword(email, code, newPassword);
 
       if (result.success) {
         Alert.alert(
-          'Registration Successful',
-          'Please check your email for verification code.',
+          'Password Reset Successful',
+          'Your password has been reset successfully. You can now log in with your new password.',
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('ConfirmEmail', { email }),
+              onPress: () => navigation.navigate('Login'),
             },
           ],
         );
       } else {
-        Alert.alert('Registration Failed', result.error || 'Unknown error');
-        console.error('Registration Failed', result.error);
+        Alert.alert('Error', result.error || 'Unknown error');
       }
     } catch (error: any) {
-      Alert.alert('Registration Failed');
-      console.error('Registration Failed', error);
+      Alert.alert('Error', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -82,19 +87,28 @@ export const RegisterScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.form}>
-        <Text style={styles.title}>Create Account</Text>
-
-        <Input
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your email"
-          keyboardType="email-address"
-          error={emailError}
-        />
+        <Text style={styles.title}>Reset Password</Text>
+        <Text style={styles.subtitle}>
+          Enter the 6-digit code sent to your email and your new password.
+        </Text>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>Reset Code</Text>
+          <View style={[styles.inputWrapper, codeError && styles.inputError]}>
+            <TextInput
+              style={styles.input}
+              value={code}
+              onChangeText={setCode}
+              placeholder="Enter 6-digit code"
+              keyboardType="numeric"
+              maxLength={6}
+            />
+          </View>
+          {codeError && <Text style={styles.errorText}>{codeError}</Text>}
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>New Password</Text>
           <View
             style={[
               styles.passwordContainer,
@@ -103,9 +117,9 @@ export const RegisterScreen: React.FC = () => {
           >
             <TextInput
               style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Enter new password"
               secureTextEntry={!isPasswordVisible}
               autoCapitalize="none"
               autoCorrect={false}
@@ -128,7 +142,7 @@ export const RegisterScreen: React.FC = () => {
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Confirm Password</Text>
+          <Text style={styles.label}>Confirm New Password</Text>
           <View
             style={[
               styles.passwordContainer,
@@ -139,7 +153,7 @@ export const RegisterScreen: React.FC = () => {
               style={styles.input}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholder="Confirm your password"
+              placeholder="Confirm new password"
               secureTextEntry={!isConfirmPasswordVisible}
               autoCapitalize="none"
               autoCorrect={false}
@@ -164,15 +178,15 @@ export const RegisterScreen: React.FC = () => {
         </View>
 
         <Button
-          title="Register"
-          onPress={handleRegister}
+          title="Reset Password"
+          onPress={handleResetPassword}
           loading={isLoading}
           disabled={isLoading}
         />
 
         <Button
           title="Back to Login"
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate('Login')}
           variant="secondary"
         />
       </View>
@@ -204,8 +218,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
     color: '#333',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
   },
   inputContainer: {
     marginBottom: 16,
@@ -215,6 +235,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
     marginBottom: 8,
+  },
+  inputWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
   },
   passwordContainer: {
     flexDirection: 'row',

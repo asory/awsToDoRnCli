@@ -6,6 +6,7 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+import { validateEmail } from '../../../shared/utils/validation';
 
 type ForgotPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -21,16 +22,9 @@ export const ForgotPasswordScreen: React.FC = () => {
   const { forgotPassword } = useAuth();
 
   const validateForm = () => {
-    if (!email) {
-      setEmailError('Email is required');
-      return false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailError('Email is invalid');
-      return false;
-    } else {
-      setEmailError('');
-      return true;
-    }
+    const validation = validateEmail(email);
+    setEmailError(validation.error || '');
+    return validation.isValid;
   };
 
   const handleResetPassword = async () => {
