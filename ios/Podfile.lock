@@ -2659,6 +2659,37 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNSentry (7.0.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Sentry/HybridSDK (= 8.53.2)
+    - SocketRocket
+    - Yoga
+  - Sentry/HybridSDK (8.53.2)
   - SocketRocket (0.7.1)
   - Yoga (0.0.0)
 
@@ -2748,12 +2779,14 @@ DEPENDENCIES:
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
+  - "RNSentry (from `../node_modules/@sentry/react-native`)"
   - SocketRocket (~> 0.7.1)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
   trunk:
     - React-Codegen
+    - Sentry
     - SocketRocket
 
 EXTERNAL SOURCES:
@@ -2926,6 +2959,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../node_modules/react-native-screens"
+  RNSentry:
+    :path: "../node_modules/@sentry/react-native"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -3015,9 +3050,11 @@ SPEC CHECKSUMS:
   RNKeychain: bbe2f6d5cc008920324acb49ef86ccc03d3b38e4
   RNReanimated: d39bf1990c5f3e9efee9ec54c0470622c09a5b82
   RNScreens: 0bbf16c074ae6bb1058a7bf2d1ae017f4306797c
+  RNSentry: 6c63debc7b22a00cbf7d1c9ed8de43e336216545
+  Sentry: 59993bffde4a1ac297ba6d268dc4bbce068d7c1b
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: a3ed390a19db0459bd6839823a6ac6d9c6db198d
 
 PODFILE CHECKSUM: ba8e5be10007aa5ee43e6cd226741ae7cef188da
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

@@ -1,11 +1,15 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../application/store';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import LoadingScreen from '../screens/LoadingScreen';
+import { navigationIntegration } from '../../../App';
 
 const Stack = createStackNavigator();
 
@@ -14,8 +18,15 @@ const AppNavigator = () => {
     (state: RootState) => state.auth,
   );
 
+  const navigationRef = createNavigationContainerRef();
+
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        navigationIntegration.registerNavigationContainer(navigationRef);
+      }}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isLoading ? (
           <Stack.Screen
