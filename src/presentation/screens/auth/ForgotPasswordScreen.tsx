@@ -44,7 +44,12 @@ export const ForgotPasswordScreen: React.FC = () => {
         Alert.alert(
           'Reset Code Sent',
           'Please check your email for the password reset code.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }],
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('ResetPassword', { email }),
+            },
+          ],
         );
       } else {
         Alert.alert('Error', result.error || 'Unknown error');

@@ -4,12 +4,14 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { ConfirmEmailScreen } from '../screens/auth/ConfirmEmailScreen';
+import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
   ConfirmEmail: { email: string };
+  ResetPassword: { email: string };
 };
 
 const Stack = createStackNavigator<AuthStackParamList>();
@@ -47,6 +49,11 @@ export const AuthNavigator: React.FC = () => {
         name="ConfirmEmail"
         component={ConfirmEmailScreen}
         options={{ title: 'Confirm Email' }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ title: 'Reset Password' }}
       />
     </Stack.Navigator>
   );

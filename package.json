@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@aws-amplify/react-native": "^1.1.10",
+    "@aws-amplify/rtn-web-browser": "^1.1.4",
     "@aws-amplify/ui-react-native": "^2.6.0",
     "@aws-sdk/client-cognito-identity": "^3.888.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.888.0",
@@ -23,10 +24,12 @@
     "@reduxjs/toolkit": "^2.0.1",
     "aws-amplify": "^6.15.6",
     "axios": "^1.6.2",
+    "base-64": "^1.0.0",
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-biometrics": "^3.0.1",
     "react-native-device-info": "^10.11.0",
+    "react-native-dotenv": "^3.4.9",
     "react-native-encrypted-storage": "^4.0.3",
     "react-native-gesture-handler": "^2.13.4",
     "react-native-get-random-values": "^1.11.0",
@@ -37,8 +40,7 @@
     "react-native-screens": "^3.27.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-redux": "^9.0.4",
-    "react-native-dotenv": "^3.4.9",
-    "base-64": "^1.0.0",
+    "stream-browserify": "^3.0.0",
     "text-encoding": "^0.7.0"
   },
   "devDependencies": {
