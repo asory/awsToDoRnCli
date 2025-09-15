@@ -2,10 +2,14 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { SecureStorage } from '../storage/SecureStorage';
 import { Logger } from '../monitoring/Logger';
 import { Config } from '../../shared/config/Config';
+import { store } from '../../application/store';
+import { refreshTokenSuccess, logout } from '../../application/slices/authSlice';
+import { CognitoService } from '../services/CognitoService';
 
 export class ApiClient {
   private client: AxiosInstance;
   private baseURL: string;
+  private static instance: ApiClient;
 
   constructor(baseURL: string = Config.API_BASE_URL) {
     this.baseURL = baseURL;
@@ -20,12 +24,20 @@ export class ApiClient {
     this.setupInterceptors();
   }
 
+  // Singleton pattern to ensure consistent instance
+  static getInstance(baseURL?: string): ApiClient {
+    if (!ApiClient.instance) {
+      ApiClient.instance = new ApiClient(baseURL);
+    }
+    return ApiClient.instance;
+  }
+
   private async setupInterceptors() {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       async (config) => {
         try {
-          const token = await SecureStorage.getSecureItem('accessToken');
+          const token = await SecureStorage.getToken('access');
           if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
           }
@@ -37,26 +49,61 @@ export class ApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor to handle token refresh
+    // Response interceptor to handle token refresh and 403 errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => response,
       async (error) => {
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
+           originalRequest._retry = true;
 
-          try {
-            // Try to refresh token
-            const refreshToken = await SecureStorage.getSecureItem('refreshToken');
-            if (refreshToken) {
-              // This would call the auth service to refresh
-              // For now, just retry the request
-              return this.client(originalRequest);
+           try {
+             // Try to refresh token
+             const refreshToken = await SecureStorage.getToken('refresh');
+             if (!refreshToken) {
+               Logger.error('No refresh token available for automatic refresh');
+               // Clear stored tokens and logout user
+               await SecureStorage.removeToken('access');
+               await SecureStorage.removeToken('refresh');
+               store.dispatch(logout());
+               return Promise.reject(error);
+             }
+
+             // Import auth service dynamically to avoid circular dependencies
+             const cognitoService = new CognitoService();
+             const newTokens = await cognitoService.refreshToken(refreshToken);
+
+             // Store new tokens with expiration
+             await SecureStorage.storeToken('access', newTokens.accessToken, newTokens.expiresIn ? (newTokens.expiresIn - Date.now()) / 1000 : undefined);
+             if (newTokens.refreshToken) {
+               await SecureStorage.storeToken('refresh', newTokens.refreshToken);
+             }
+
+             store.dispatch(refreshTokenSuccess(newTokens));
+
+             if (originalRequest.headers) {
+               originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
+             }
+
+             return this.client(originalRequest);
+           } catch (refreshError) {
+            Logger.error('Token refresh failed:', refreshError as Error);
+            try {
+              await SecureStorage.removeToken('access');
+              await SecureStorage.removeToken('refresh');
+              store.dispatch(logout());
+            } catch (cleanupError) {
+              Logger.error('Error during logout cleanup:', cleanupError as Error);
             }
-          } catch (refreshError) {
-            console.error('Token refresh failed:', refreshError);
           }
+        }
+
+        // Handle 403 Forbidden errors (insufficient scopes)
+        if (error.response?.status === 403) {
+          Logger.error('403 Forbidden: Insufficient permissions', error.response.data);
+          // TODO can emit an event or call a callback here to notify the UI
+          // For now, just log and reject
         }
 
         return Promise.reject(error);
@@ -82,6 +129,20 @@ export class ApiClient {
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.delete(url, config);
     return response.data;
+  }
+
+  // Method to clear authentication tokens from memory and headers
+  clearAuthTokens() {
+    // Remove authorization header from default headers
+    delete this.client.defaults.headers.common['Authorization'];
+
+    // Clear any cached tokens in interceptors
+    this.client.interceptors.request.clear();
+
+    // Re-setup interceptors without auth token
+    this.setupInterceptors();
+
+    console.log('API client authentication tokens cleared from memory');
   }
 
   // Method to update base URL (useful for different environments)

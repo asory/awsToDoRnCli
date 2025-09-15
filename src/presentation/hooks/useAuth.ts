@@ -6,6 +6,7 @@ import { CognitoService } from '../../infrastructure/services/CognitoService';
 import { SecureStorage } from '../../infrastructure/storage/SecureStorage';
 import { ApiClient } from '../../infrastructure/api/ApiClient';
 import { tasksApi } from '../../application/slices/tasksApi';
+import { reAuthService } from '../../infrastructure/services/BiometricService';
 import { LoginCredentials, RegisterData } from '../../core/entities/User';
 
 export const useAuth = () => {
@@ -100,6 +101,9 @@ export const useAuth = () => {
       // Clear RTK Query cache for user-specific data
       dispatch(tasksApi.util.resetApiState());
 
+      // Clear re-authentication state
+      await reAuthService.clearReAuthState();
+
       // Reset Redux state
       dispatch(logout());
 
@@ -114,6 +118,9 @@ export const useAuth = () => {
 
       // Clear RTK Query cache for user-specific data
       dispatch(tasksApi.util.resetApiState());
+
+      // Clear re-authentication state
+      await reAuthService.clearReAuthState();
 
       dispatch(logout());
     }

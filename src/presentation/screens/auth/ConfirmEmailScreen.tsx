@@ -22,7 +22,7 @@ export const ConfirmEmailScreen: React.FC = () => {
   const navigation = useNavigation<ConfirmEmailScreenNavigationProp>();
   const route = useRoute<ConfirmEmailRouteProp>();
   const { email } = route.params;
-  const { confirmEmail } = useAuth();
+  const { confirmEmail, resendSignUpCode } = useAuth();
 
   const validateForm = () => {
     if (!code) {
@@ -61,11 +61,19 @@ export const ConfirmEmailScreen: React.FC = () => {
   };
 
   const handleResendCode = async () => {
-    // For now, just show a message
-    Alert.alert(
-      'Code Resent',
-      'A new verification code has been sent to your email.',
-    );
+    try {
+      const result = await resendSignUpCode(email);
+      if (result.success) {
+        Alert.alert(
+          'Code Resent',
+          'A new verification code has been sent to your email.',
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to resend code');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   return (

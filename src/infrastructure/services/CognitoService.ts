@@ -371,6 +371,35 @@ export class CognitoService implements AuthRepository {
     }
   }
 
+  /**
+   * Verify user credentials without creating a new session
+   * Used for re-authentication purposes
+   */
+  async verifyCredentials(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Attempt to sign in to verify credentials
+      const result = await signIn({
+        username: credentials.email,
+        password: credentials.password,
+      });
+
+      if (result.isSignedIn) {
+        // If successful, immediately sign out to maintain current session
+        try {
+          await signOut({ global: false }); // Local sign out only
+        } catch (signOutError) {
+          console.warn('Failed to sign out after credential verification:', signOutError);
+        }
+        return { success: true };
+      } else {
+        return { success: false, error: 'Invalid credentials' };
+      }
+    } catch (error: any) {
+      const mappedError = this.mapCognitoError(error);
+      return { success: false, error: mappedError };
+    }
+  }
+
   private mapCognitoError(error: any): string {
     const errorCode = error.code || error.name;
     const errorMessage = error.message || '';
