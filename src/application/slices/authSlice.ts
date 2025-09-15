@@ -7,6 +7,10 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  // Re-authentication state
+  isReAuthenticated: boolean;
+  reAuthLoading: boolean;
+  reAuthError: string | null;
 }
 
 const initialState: AuthState = {
@@ -15,6 +19,10 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  // Re-authentication state
+  isReAuthenticated: false,
+  reAuthLoading: false,
+  reAuthError: null,
 };
 
 export const authSlice = createSlice({
@@ -42,6 +50,10 @@ export const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isLoading = false;
       state.error = null;
+      // Clear re-authentication state on logout
+      state.isReAuthenticated = false;
+      state.reAuthLoading = false;
+      state.reAuthError = null;
     },
     refreshTokenSuccess: (state, action: PayloadAction<AuthTokens>) => {
       state.tokens = action.payload;
@@ -55,6 +67,26 @@ export const authSlice = createSlice({
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
     },
+    // Re-authentication actions
+    setReAuthState: (state, action: PayloadAction<boolean>) => {
+      state.isReAuthenticated = action.payload;
+      if (!action.payload) {
+        state.reAuthLoading = false;
+        state.reAuthError = null;
+      }
+    },
+    clearReAuthState: (state) => {
+      state.isReAuthenticated = false;
+      state.reAuthLoading = false;
+      state.reAuthError = null;
+    },
+    setReAuthLoading: (state, action: PayloadAction<boolean>) => {
+      state.reAuthLoading = action.payload;
+    },
+    setReAuthError: (state, action: PayloadAction<string | null>) => {
+      state.reAuthError = action.payload;
+      state.reAuthLoading = false;
+    },
   },
 });
 
@@ -67,6 +99,11 @@ export const {
   proactiveRefreshSuccess,
   setLoading,
   setError,
+  // Re-authentication actions
+  setReAuthState,
+  clearReAuthState,
+  setReAuthLoading,
+  setReAuthError,
 } = authSlice.actions;
 
 export default authSlice.reducer;

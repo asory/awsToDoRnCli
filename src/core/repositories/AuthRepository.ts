@@ -9,4 +9,10 @@ export interface AuthRepository {
   confirmEmail(email: string, code: string): Promise<void>;
   forgotPassword(email: string): Promise<void>;
   confirmForgotPassword(email: string, code: string, newPassword: string): Promise<void>;
+  resendSignUpCode(email: string): Promise<void>;
+  resetPassword(email: string): Promise<void>;
+  confirmResetPassword(email: string, code: string, newPassword: string): Promise<void>;
+  updatePassword(oldPassword: string, newPassword: string): Promise<void>;
+  hasScope(scope: string): Promise<boolean>;
+  getScopes(): Promise<string[]>;
 }
