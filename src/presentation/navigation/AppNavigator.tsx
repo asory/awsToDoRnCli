@@ -5,18 +5,21 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../application/store';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
+import { LoadingScreen } from '../screens/LoadingScreen';
 
 const Stack = createStackNavigator();
 
 export const AppNavigator: React.FC = () => {
-  const isAuthenticated = useSelector(
-    (state: RootState) => state.auth.isAuthenticated,
+  const { isAuthenticated, isLoading } = useSelector(
+    (state: RootState) => state.auth,
   );
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
+        {isLoading ? (
+          <Stack.Screen name="Loading" component={LoadingScreen} />
+        ) : isAuthenticated ? (
           <Stack.Screen name="Main" component={MainNavigator} />
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
