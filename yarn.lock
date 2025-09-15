@@ -219,51 +219,6 @@
     "@smithy/util-utf8" "^2.0.0"
     tslib "^2.6.2"
 
-"@aws-sdk/client-cognito-identity-provider@^3.888.0":
-  version "3.888.0"
-  resolved "https://registry.yarnpkg.com/@aws-sdk/client-cognito-identity-provider/-/client-cognito-identity-provider-3.888.0.tgz#319bf0291454cac318b3dc279814c507f543fffa"
-  integrity sha512-ZRrWqS3avq6KTb2vpwAWeIYFsATEirTC/SGGtRb+LQdy5dLE9Le3nyI+MpNzLnIuBCkoAtdkr7ZVNn6vR/2ivg==
-  dependencies:
-    "@aws-crypto/sha256-browser" "5.2.0"
-    "@aws-crypto/sha256-js" "5.2.0"
-    "@aws-sdk/core" "3.888.0"
-    "@aws-sdk/credential-provider-node" "3.888.0"
-    "@aws-sdk/middleware-host-header" "3.887.0"
-    "@aws-sdk/middleware-logger" "3.887.0"
-    "@aws-sdk/middleware-recursion-detection" "3.887.0"
-    "@aws-sdk/middleware-user-agent" "3.888.0"
-    "@aws-sdk/region-config-resolver" "3.887.0"
-    "@aws-sdk/types" "3.887.0"
-    "@aws-sdk/util-endpoints" "3.887.0"
-    "@aws-sdk/util-user-agent-browser" "3.887.0"
-    "@aws-sdk/util-user-agent-node" "3.888.0"
-    "@smithy/config-resolver" "^4.2.1"
-    "@smithy/core" "^3.11.0"
-    "@smithy/fetch-http-handler" "^5.2.1"
-    "@smithy/hash-node" "^4.1.1"
-    "@smithy/invalid-dependency" "^4.1.1"
-    "@smithy/middleware-content-length" "^4.1.1"
-    "@smithy/middleware-endpoint" "^4.2.1"
-    "@smithy/middleware-retry" "^4.2.1"
-    "@smithy/middleware-serde" "^4.1.1"
-    "@smithy/middleware-stack" "^4.1.1"
-    "@smithy/node-config-provider" "^4.2.1"
-    "@smithy/node-http-handler" "^4.2.1"
-    "@smithy/protocol-http" "^5.2.1"
-    "@smithy/smithy-client" "^4.6.1"
-    "@smithy/types" "^4.5.0"
-    "@smithy/url-parser" "^4.1.1"
-    "@smithy/util-base64" "^4.1.0"
-    "@smithy/util-body-length-browser" "^4.1.0"
-    "@smithy/util-body-length-node" "^4.1.0"
-    "@smithy/util-defaults-mode-browser" "^4.1.1"
-    "@smithy/util-defaults-mode-node" "^4.1.1"
-    "@smithy/util-endpoints" "^3.1.1"
-    "@smithy/util-middleware" "^4.1.1"
-    "@smithy/util-retry" "^4.1.1"
-    "@smithy/util-utf8" "^4.1.0"
-    tslib "^2.6.2"
-
 "@aws-sdk/client-cognito-identity@^3.888.0":
   version "3.888.0"
   resolved "https://registry.yarnpkg.com/@aws-sdk/client-cognito-identity/-/client-cognito-identity-3.888.0.tgz#d02cb1672e78b5bab6e605e956cd72e1dbd6ffd5"
@@ -2561,10 +2516,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@react-native-async-storage/async-storage@^1.19.5":
-  version "1.24.0"
-  resolved "https://registry.yarnpkg.com/@react-native-async-storage/async-storage/-/async-storage-1.24.0.tgz#888efbc62a26f7d9464b32f4d3027b7f2771999b"
-  integrity sha512-W4/vbwUOYOjco0x3toB8QCr7EjIP6nE9G7o8PMguvvjYT5Awg09lyV4enACRx4s++PPulBiBSjL0KTFx2u0Z/g==
+"@react-native-async-storage/async-storage@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@react-native-async-storage/async-storage/-/async-storage-2.2.0.tgz#a3aa565253e46286655560172f4e366e8969f5ad"
+  integrity sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw==
   dependencies:
     merge-options "^3.0.4"
 
@@ -2889,11 +2844,6 @@
     "@react-native/metro-babel-transformer" "0.81.4"
     metro-config "^0.83.1"
     metro-runtime "^0.83.1"
-
-"@react-native/new-app-screen@0.81.4":
-  version "0.81.4"
-  resolved "https://registry.yarnpkg.com/@react-native/new-app-screen/-/new-app-screen-0.81.4.tgz#f712851d3ccf74e5ebb653b7dfec03457826e34a"
-  integrity sha512-W0HU/8s0nXlLicMRVG+HFmYunGS9tdKxdJEmN6HinkRgBF4yA4EF9jsLybvZHGzWm99kJlDlH3PH0MJA68WAgg==
 
 "@react-native/normalize-colors@0.81.4":
   version "0.81.4"
