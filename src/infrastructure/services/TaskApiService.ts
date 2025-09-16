@@ -2,127 +2,304 @@ import { Task, CreateTaskData, UpdateTaskData } from '../../core/entities/Task';
 import { TaskRepository } from '../../core/repositories/TaskRepository';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../../backend/amplify/data/resource';
+import { LocalStorage } from '../storage/LocalStorage';
+import { SecureStorage } from '../storage/SecureStorage';
+import { isOnline } from '../../shared/utils/deviceUtils';
 
 const client = generateClient<Schema>();
 
-
 export class TaskApiService implements TaskRepository {
-  getTasks = async (_userId: string): Promise<Task[]> => {
+  private transformTaskData = (taskData: any): Task => ({
+    id: taskData.id,
+    content: taskData.content || '',
+    isDone: taskData.isDone ?? false,
+    createdAt: taskData.createdAt || new Date().toISOString(),
+    updatedAt: taskData.updatedAt || new Date().toISOString(),
+    owner: taskData.owner || '',
+  });
+
+  private async updateLocalTasks(userId: string, taskId: string, updatedTask: Task): Promise<void> {
+    const allTasks = await LocalStorage.getTasks(userId);
+    const updatedTasks = allTasks.map(t => t.id === taskId ? updatedTask : t);
+    await LocalStorage.saveTasks(userId, updatedTasks);
+  }
+
+  private async updateTaskOffline(id: string, data: UpdateTaskData, userId: string): Promise<Task> {
+    const allTasks = await LocalStorage.getTasks(userId);
+    const taskToUpdate = allTasks.find(t => t.id === id);
+
+    if (!taskToUpdate) {
+      throw new Error('Task not found in local storage');
+    }
+ 
+    const updatedTask: Task = {
+      ...taskToUpdate,
+      content: data.content !== undefined ? data.content : taskToUpdate.content,
+      isDone: data.isDone !== undefined ? data.isDone : taskToUpdate.isDone,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.updateLocalTasks(userId, id, updatedTask);
+
+    await LocalStorage.addPendingSyncOperation({
+      id: `update_${id}_${Date.now()}`,
+      type: 'update',
+      task: updatedTask,
+      timestamp: Date.now(),
+      userId,
+    });
+
+    return updatedTask;
+  }
+
+
+  fetchTasks = async (userId: string, forceRefresh: boolean = false): Promise<Task[]> => {
     try {
-      const result = await client.models.Task.list();
-      const tasks = result.data || [];
-      return tasks.map((task) => ({
-        id: task.id,
-        title: task.content || '',
-        completed: task.isDone || false,
-        createdAt: new Date(task.createdAt || Date.now()),
-        updatedAt: new Date(task.updatedAt || Date.now()),
-        ownerId: task.owner || '',
-      }));
+      const online = await isOnline();
+
+      if (online || forceRefresh) {
+        const result = await client.models.Task.list();
+        const tasks = result.data || [];
+        const transformedTasks = tasks.map(this.transformTaskData);
+         
+        await LocalStorage.saveTasks(userId, transformedTasks);
+        await LocalStorage.saveLastSyncTimestamp(userId, Date.now());
+        return transformedTasks;
+      } else {
+        return await LocalStorage.getTasks(userId);
+      }
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
-      return [] ;
+      return await LocalStorage.getTasks(userId);
     }
   };
 
-  getTaskById = async (id: string, _userId: string): Promise<Task | null> => {
-    try {
-      const result = await client.models.Task.get({ id });
-      const task = result.data;
-      if (!task) {
-        return null;
-      }
-      return {
-        id: task.id,
-        title: task.content || '',
-        completed: task.isDone || false,
-        createdAt: new Date(task.createdAt || Date.now()),
-        updatedAt: new Date(task.updatedAt || Date.now()),
-        ownerId: task.owner || '',
-      };
-    } catch (error) {
-      console.error('Error fetching task:', error);
-      return null;
-    }
+  getTasks = async (userId: string): Promise<Task[]> => {
+    return this.fetchTasks(userId, false);
   };
 
   createTask = async (data: CreateTaskData, userId: string): Promise<Task> => {
+    let taskToSave: Task;
+
     try {
-      const now = new Date().toISOString();
       const result = await client.models.Task.create({
-        content: data.title,
+        content: data.content,
         isDone: false,
         owner: userId,
-        createdAt: now,
-        updatedAt: now,
       });
+
       const task = result.data;
       if (!task) {
-        console.error('No task data returned from create operation');
         throw new Error('Failed to create task - no data returned');
       }
-      return {
-        id: task.id,
-        title: task.content || '',
-        completed: task.isDone || false,
-        createdAt: new Date(task.createdAt || Date.now()),
-        updatedAt: new Date(task.updatedAt || Date.now()),
-        ownerId: task.owner || '',
-      };
+
+      taskToSave = this.transformTaskData(task);
     } catch (error: any) {
       console.error('Error creating task:', error);
-      const mockTask: Task = {
+
+      taskToSave = {
         id: `mock-${Date.now()}`,
-        title: data.title,
-        completed: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ownerId: userId,
+        content: data.content,
+        isDone: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        owner: userId,
       };
-      return mockTask;
     }
+
+    const allTasks = await LocalStorage.getTasks(userId);
+    await LocalStorage.saveTasks(userId, [...allTasks, taskToSave]);
+    return taskToSave;
   };
 
-  updateTask = async (id: string, data: UpdateTaskData, _userId: string): Promise<Task> => {
+  updateTask = async (id: string, data: UpdateTaskData, userId: string): Promise<Task> => {
     try {
-      const updateInput: any = { id };
-      if (data.title !== undefined) {
-        updateInput.content = data.title;
+      const online = await isOnline();
+
+      if (online) {
+        const updateInput: any = { id };
+        if (data.content !== undefined) {
+          updateInput.content = data.content;
+        }
+        if (data.isDone !== undefined) {
+          updateInput.isDone = data.isDone;
+        }
+
+        const result = await client.models.Task.update(updateInput);
+        const task = result.data;
+        if (!task) {
+          throw new Error('Failed to update task');
+        }
+
+        const updatedTask = this.transformTaskData(task);
+        await this.updateLocalTasks(userId, id, updatedTask);
+        return updatedTask;
       }
-      if (data.completed !== undefined) {
-        updateInput.isDone = data.completed;
-      }
-      const result = await client.models.Task.update(updateInput);
-      const task = result.data;
-      if (!task) {
-        throw new Error('Failed to update task');
-      }
-      return {
-        id: task.id,
-        title: task.content || '',
-        completed: task.isDone || false,
-        createdAt: new Date(task.createdAt || Date.now()),
-        updatedAt: new Date(task.updatedAt || Date.now()),
-        ownerId: task.owner || '',
-      };
     } catch (error: any) {
       console.error('Error updating task:', error);
+    }
+
+    try {
+      return this.updateTaskOffline(id, data, userId);
+    } catch (localError) {
+      console.error('Local storage update failed:', localError);
       return {
         id: id,
-        title: data.title || 'Updated Task',
-        completed: data.completed !== undefined ? data.completed : false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ownerId: _userId,
+        content: data.content || 'Updated Task',
+        isDone: data.isDone !== undefined ? data.isDone : false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        owner: userId,
       };
     }
   };
 
-  deleteTask = async (id: string, _userId: string): Promise<void> => {
+  deleteTask = async (id: string, userId: string): Promise<void> => {
+    const allTasks = await LocalStorage.getTasks(userId);
+    
     try {
-      await client.models.Task.delete({ id });
+      const online = await isOnline();
+
+      if (online) {
+        await client.models.Task.delete({ id });
+      } else {
+        const taskToDelete = allTasks.find(t => t.id === id);
+
+        if (taskToDelete) {
+          await LocalStorage.addPendingSyncOperation({
+            id: `delete_${id}_${Date.now()}`,
+            type: 'delete',
+            task: taskToDelete,
+            timestamp: Date.now(),
+            userId,
+          });
+        }
+      }
     } catch (error: any) {
       console.error('Error deleting task:', error);
+    }
+
+    try {
+      const filteredTasks = allTasks.filter(t => t.id !== id);
+      await LocalStorage.saveTasks(userId, filteredTasks);
+    } catch (localError) {
+      console.error('Local storage delete failed:', localError);
+    }
+  };
+
+  private async isAuthenticated(): Promise<boolean> {
+    try {
+      const token = await SecureStorage.getToken('access');
+      if (!token) return false;
+
+      return await SecureStorage.validateToken(token);
+    } catch (error) {
+      console.error('Authentication check failed:', error);
+      return false;
+    }
+  }
+
+  syncPendingOperations = async (userId: string): Promise<void> => {
+    try {
+      const online = await isOnline();
+      if (!online) {
+        return;
+      }
+
+      const authenticated = await this.isAuthenticated();
+      if (!authenticated) {
+        return;
+      }
+
+      const pendingOperations = await LocalStorage.getPendingSyncOperations(userId);
+      if (pendingOperations.length === 0) {
+        return;
+      }
+
+
+      const sortedOperations = pendingOperations.sort((a, b) => a.timestamp - b.timestamp);
+
+      for (const operation of sortedOperations) {
+        try {
+          switch (operation.type) {
+            case 'create':
+              const existingTask = await client.models.Task.get({ id: operation.task.id }).catch(() => null);
+              if (existingTask?.data) {
+                console.log(`Task ${operation.task.id} already exists, skipping create`);
+              } else {
+                await client.models.Task.create({
+                  content: operation.task.content,
+                  isDone: operation.task.isDone,
+                  owner: operation.userId,
+                });
+                console.log(`Created task: ${operation.task.id}`);
+              }
+              break;
+
+            case 'update':
+              try {
+                const updateInput: any = { id: operation.task.id };
+                if (operation.task.content !== undefined) {
+                  updateInput.content = operation.task.content;
+                }
+                updateInput.isDone = operation.task.isDone;
+                await client.models.Task.update(updateInput);
+                console.log(`Updated task: ${operation.task.id}`);
+              } catch (updateError: any) {
+                if (updateError.message?.includes('not found')) {
+                  console.log(`Task ${operation.task.id} not found, skipping update`);
+                } else {
+                  throw updateError;
+                }
+              }
+              break;
+
+            case 'delete':
+              try {
+                await client.models.Task.delete({ id: operation.task.id });
+              } catch (deleteError: any) {
+                if (deleteError.message?.includes('not found')) {
+                } else {
+                  throw deleteError;
+                }
+              }
+              break;
+          }
+
+          await LocalStorage.removePendingSyncOperation(userId, operation.id);
+        } catch (syncError: any) {
+          console.error(`Failed to sync operation ${operation.id}:`, syncError);
+
+          if (syncError.message?.includes('Unauthorized') ||
+              syncError.message?.includes('Forbidden')) {
+            console.error('Authentication error during sync, stopping sync process');
+            break;
+          }
+        }
+      }
+
+      await LocalStorage.saveLastSyncTimestamp(userId, Date.now());
+    } catch (error: any) {
+      console.error('Error during sync:', error);
+    }
+  };
+
+  clearUserData = async (userId: string): Promise<void> => {
+    try {
+      await LocalStorage.clearUserData(userId);
+      console.log(`Cleared local data for user: ${userId}`);
+    } catch (error: any) {
+      console.error('Error clearing user data:', error);
+    }
+  };
+
+  getTasksFromBackend = async (_userId: string): Promise<Task[]> => {
+    try {
+      const result = await client.models.Task.list();
+      return (result.data || []).map(this.transformTaskData);
+    } catch (error: any) {
+      console.error('Error fetching tasks from backend:', error);
+      throw new Error('Failed to fetch tasks from backend');
     }
   };
 }

@@ -1,17 +1,17 @@
 export interface Task {
   id: string;
-  title: string;
-  completed: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  ownerId: string;
+  content: string;
+  isDone: boolean;
+  createdAt: string;
+  updatedAt: string;
+  owner: string;
 }
 
 export interface CreateTaskData {
-  title: string;
+  content: string;
 }
 
 export interface UpdateTaskData {
-  title?: string;
-  completed?: boolean;
+  content?: string;
+  isDone?: boolean;
 }

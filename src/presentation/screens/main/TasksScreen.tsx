@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,25 +6,60 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useTasks } from '../../hooks/useTasks';
 import { useScopes } from '../../hooks/useScopes';
 import { Task } from '../../../core/entities/Task';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+import { LocalStorage } from '../../../infrastructure/storage/LocalStorage';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../application/store';
 
 export const TasksScreen: React.FC = () => {
-  const { tasks, isLoading, error, refetch, toggleTaskCompletion, createTask } =
-    useTasks();
+  const {
+    tasks,
+    isLoading,
+    error,
+    refetch,
+    toggleTaskCompletion,
+    createTask,
+    fetchTasks,
+  } = useTasks();
+
   const { hasWriteScope } = useScopes();
+
   const [inputText, setInputText] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const user = useSelector((state: RootState) => state.auth.user);
+  const userId = user?.id || '';
+
+  useEffect(() => {
+    const loadLastUpdate = async () => {
+      if (userId) {
+        try {
+          const lastSyncTimestamp = await LocalStorage.getLastSyncTimestamp(
+            userId,
+          );
+          if (lastSyncTimestamp) {
+            setLastUpdate(new Date(lastSyncTimestamp));
+          }
+        } catch (e) {
+          console.error('Error loading last sync timestamp:', e);
+        }
+      }
+    };
+
+    loadLastUpdate();
+  }, [userId]);
+
   const renderTask = ({ item }: { item: Task }) => (
     <View style={styles.taskItem}>
       <View style={styles.taskContent}>
-        <Text
-          style={[styles.taskTitle, item.completed && styles.taskCompleted]}
-        >
-          {item.title}
+        <Text style={[styles.taskTitle, item.isDone && styles.taskCompleted]}>
+          {item.content}
         </Text>
         <Text style={styles.taskDate}>
           {new Date(item.createdAt).toLocaleDateString()}
@@ -34,13 +69,13 @@ export const TasksScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.checkbox}
           onPress={() => {
-            toggleTaskCompletion(item.id, item.completed);
+            toggleTaskCompletion(item.id, item.isDone);
           }}
         >
           <View
             style={[
               styles.checkboxInner,
-              item.completed && styles.checkboxChecked,
+              item.isDone && styles.checkboxChecked,
             ]}
           />
         </TouchableOpacity>
@@ -83,11 +118,30 @@ export const TasksScreen: React.FC = () => {
   const handleAddTask = async () => {
     if (inputText.trim()) {
       try {
-        await createTask({ title: inputText.trim() });
+        await createTask({ content: inputText.trim() });
         setInputText('');
       } catch (e) {
         Alert.alert('Error', 'Failed to create task');
       }
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (!userId) return;
+
+    setRefreshing(true);
+    try {
+      await fetchTasks(true);
+
+      const lastSyncTimestamp = await LocalStorage.getLastSyncTimestamp(userId);
+      if (lastSyncTimestamp) {
+        setLastUpdate(new Date(lastSyncTimestamp));
+      }
+    } catch (e) {
+      console.error('❌ Pull-to-refresh failed:', e);
+      Alert.alert('Error', 'Failed to refresh tasks. Please try again.');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -120,6 +174,16 @@ export const TasksScreen: React.FC = () => {
         data={tasks}
         renderItem={renderTask}
         keyExtractor={item => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#007AFF']}
+            tintColor="#007AFF"
+            title="Refreshing tasks..."
+            titleColor="#007AFF"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No tasks yet</Text>
@@ -132,6 +196,14 @@ export const TasksScreen: React.FC = () => {
         }
         contentContainerStyle={tasks.length === 0 && styles.emptyContainer}
       />
+
+      {lastUpdate && (
+        <View style={styles.lastUpdateContainer}>
+          <Text style={styles.lastUpdateText}>
+            Last updated: {lastUpdate.toLocaleString()}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -259,5 +331,17 @@ const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
+  },
+  lastUpdateContainer: {
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  lastUpdateText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });

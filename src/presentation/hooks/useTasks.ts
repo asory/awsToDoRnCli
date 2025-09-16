@@ -4,6 +4,7 @@ import { RootState } from '../../application/store';
 import { CreateTaskData, UpdateTaskData, Task } from '../../core/entities/Task';
 import { TaskUseCases } from '../../core/usecases/TaskUseCases';
 import { TaskApiService } from '../../infrastructure/services/TaskApiService';
+import NetInfo from '@react-native-community/netinfo';
 
 export const useTasks = () => {
   const user = useSelector((state: RootState) => state.auth.user);
@@ -11,9 +12,7 @@ export const useTasks = () => {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [error, setError] = useState<any>(null);
 
   const taskUseCases = useMemo(() => {
@@ -27,7 +26,7 @@ export const useTasks = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedTasks = await taskUseCases.getTasks(userId);
+      const fetchedTasks = await taskUseCases.fetchTasks(userId, false);
       setTasks(fetchedTasks);
     } catch (err) {
       console.error('Load tasks error:', err);
@@ -37,6 +36,21 @@ export const useTasks = () => {
     }
   }, [userId, taskUseCases]);
 
+  const fetchTasks = useCallback(async (forceRefresh: boolean = false) => {
+    if (!userId) return [];
+
+    try {
+      const fetchedTasks = await taskUseCases.fetchTasks(userId, forceRefresh);
+      setTasks(fetchedTasks);
+      return fetchedTasks;
+    } catch (err) {
+      console.error('Fetch tasks error:', err);
+      setError(err);
+      throw err;
+    }
+  }, [userId, taskUseCases]);
+
+
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
@@ -44,7 +58,7 @@ export const useTasks = () => {
   const createTask = async (data: CreateTaskData) => {
     if (!userId) return;
 
-    setIsCreating(true);
+    setIsLoading(true);
     setError(null);
     try {
       const newTask = await taskUseCases.createTask(data, userId);
@@ -54,14 +68,14 @@ export const useTasks = () => {
       setError(err);
       throw err;
     } finally {
-      setIsCreating(false);
+      setIsLoading(false);
     }
   };
 
   const updateTask = async (id: string, data: UpdateTaskData) => {
     if (!userId) return;
 
-    setIsUpdating(true);
+    setIsLoading(true);
     setError(null);
     try {
       const updatedTask = await taskUseCases.updateTask(id, data, userId);
@@ -71,14 +85,14 @@ export const useTasks = () => {
       setError(err);
       throw err;
     } finally {
-      setIsUpdating(false);
+      setIsLoading(false);
     }
   };
 
   const deleteTask = async (id: string) => {
     if (!userId) return;
 
-    setIsDeleting(true);
+    setIsLoading(true);
     setError(null);
     try {
       await taskUseCases.deleteTask(id, userId);
@@ -88,13 +102,40 @@ export const useTasks = () => {
       setError(err);
       throw err;
     } finally {
-      setIsDeleting(false);
+      setIsLoading(false);
     }
   };
 
-  const toggleTaskCompletion = async (id: string, currentCompleted: boolean) => {
-    await updateTask(id, { completed: !currentCompleted });
+  const toggleTaskCompletion = async (id: string, currentIsDone: boolean) => {
+    await updateTask(id, { isDone: !currentIsDone });
   };
+
+  const syncPendingOperations = useCallback(async () => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    try {
+      await taskUseCases.syncPendingOperations(userId);
+      await loadTasks();
+    } catch (err) {
+      console.error('Sync pending operations error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, taskUseCases, loadTasks]);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const online = state.isConnected === true && state.isInternetReachable === true;
+      setIsOnline(online);
+
+      if (online && userId) {
+        syncPendingOperations();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [userId, syncPendingOperations]);
 
   const refetch = () => {
     loadTasks();
@@ -103,14 +144,13 @@ export const useTasks = () => {
   return {
     tasks,
     isLoading,
-    isCreating,
-    isUpdating,
-    isDeleting,
     error,
     createTask,
     updateTask,
     deleteTask,
     toggleTaskCompletion,
+    syncPendingOperations,
     refetch,
+    fetchTasks,
   };
 };
