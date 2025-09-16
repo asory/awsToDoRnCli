@@ -1,40 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useTasks } from '../../hooks/useTasks';
+import { useScopes } from '../../hooks/useScopes';
 import { Task } from '../../../core/entities/Task';
 import { Button } from '../../components/Button';
+import { Input } from '../../components/Input';
 
 export const TasksScreen: React.FC = () => {
-  const { tasks, isLoading, error, refetch, toggleTaskCompletion } = useTasks();
-
+  const { tasks, isLoading, error, refetch, toggleTaskCompletion, createTask } =
+    useTasks();
+  const { hasWriteScope } = useScopes();
+  const [inputText, setInputText] = useState('');
   const renderTask = ({ item }: { item: Task }) => (
     <View style={styles.taskItem}>
       <View style={styles.taskContent}>
-        <Text style={styles.taskTitle}>{item.title}</Text>
-        {item.description && (
-          <Text style={styles.taskDescription}>{item.description}</Text>
-        )}
+        <Text
+          style={[styles.taskTitle, item.completed && styles.taskCompleted]}
+        >
+          {item.title}
+        </Text>
         <Text style={styles.taskDate}>
           {new Date(item.createdAt).toLocaleDateString()}
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.checkbox}
-        onPress={() => toggleTaskCompletion(item.id, item.completed)}
-      >
-        <View
-          style={[
-            styles.checkboxInner,
-            item.completed && styles.checkboxChecked,
-          ]}
-        />
-      </TouchableOpacity>
+      <View style={styles.taskActions}>
+        <TouchableOpacity
+          style={styles.checkbox}
+          onPress={() => {
+            toggleTaskCompletion(item.id, item.completed);
+          }}
+        >
+          <View
+            style={[
+              styles.checkboxInner,
+              item.completed && styles.checkboxChecked,
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -47,6 +57,21 @@ export const TasksScreen: React.FC = () => {
   }
 
   if (error) {
+    console.log('TasksScreen: error details', error);
+    const is403 =
+      (error as any)?.status === 403 ||
+      (error as any)?.data?.message?.includes('403');
+    if (is403) {
+      return (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>No autorizado</Text>
+          <Text style={styles.errorSubtext}>
+            No tienes permisos para ver las tareas
+          </Text>
+          <Button title="Reintentar" onPress={refetch} />
+        </View>
+      );
+    }
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Error loading tasks</Text>
@@ -55,11 +80,40 @@ export const TasksScreen: React.FC = () => {
     );
   }
 
+  const handleAddTask = async () => {
+    if (inputText.trim()) {
+      try {
+        await createTask({ title: inputText.trim() });
+        setInputText('');
+      } catch (e) {
+        Alert.alert('Error', 'Failed to create task');
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Tasks</Text>
-        <Button title="Add Task" onPress={() => {}} />
+        {hasWriteScope() && (
+          <View style={styles.inputContainer}>
+            <View style={styles.input}>
+              <Input
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Enter task title"
+                maxLength={100}
+              />
+            </View>
+            <View style={styles.addButton}>
+              <Button
+                title="Add Task"
+                onPress={handleAddTask}
+                disabled={!inputText.trim()}
+              />
+            </View>
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -69,7 +123,11 @@ export const TasksScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No tasks yet</Text>
-            <Text style={styles.emptySubtext}>Create your first task!</Text>
+            <Text style={styles.emptySubtext}>
+              {hasWriteScope()
+                ? 'Create your first task!'
+                : 'Ask your admin to add tasks'}
+            </Text>
           </View>
         }
         contentContainerStyle={tasks.length === 0 && styles.emptyContainer}
@@ -84,9 +142,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -96,6 +151,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 16,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  addButton: {
+    marginVertical: 0,
+    minHeight: 48,
   },
   taskItem: {
     flexDirection: 'row',
@@ -122,6 +191,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 4,
+  },
+  taskCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  taskActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   taskDescription: {
     fontSize: 14,
@@ -158,6 +236,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#dc3545',
     marginBottom: 10,
+  },
+  errorSubtext: {
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   empty: {
     alignItems: 'center',

@@ -1,58 +1,94 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { useGetTasksQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '../../application/slices/tasksApi';
 import { RootState } from '../../application/store';
-import { CreateTaskData, UpdateTaskData } from '../../core/entities/Task';
+import { CreateTaskData, UpdateTaskData, Task } from '../../core/entities/Task';
+import { TaskUseCases } from '../../core/usecases/TaskUseCases';
+import { TaskApiService } from '../../infrastructure/services/TaskApiService';
 
 export const useTasks = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const userId = user?.id || '';
 
-  const {
-    data: tasks,
-    isLoading,
-    error,
-    refetch,
-  } = useGetTasksQuery(userId, {
-    skip: !userId,
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<any>(null);
 
-  const [createTaskMutation, { isLoading: isCreating }] = useCreateTaskMutation();
-  const [updateTaskMutation, { isLoading: isUpdating }] = useUpdateTaskMutation();
-  const [deleteTaskMutation, { isLoading: isDeleting }] = useDeleteTaskMutation();
+  const taskUseCases = useMemo(() => {
+    const taskRepository = new TaskApiService();
+    return new TaskUseCases(taskRepository);
+  }, []);
+
+  const loadTasks = useCallback(async () => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedTasks = await taskUseCases.getTasks(userId);
+      setTasks(fetchedTasks);
+    } catch (err) {
+      console.error('Load tasks error:', err);
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, taskUseCases]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
 
   const createTask = async (data: CreateTaskData) => {
     if (!userId) return;
 
+    setIsCreating(true);
+    setError(null);
     try {
-      await createTaskMutation({ data, userId }).unwrap();
-      refetch(); // Refresh the list
-    } catch (error) {
-      console.error('Create task error:', error);
-      throw error;
+      const newTask = await taskUseCases.createTask(data, userId);
+      setTasks(prev => [...prev, newTask]);
+    } catch (err) {
+      console.error('Create task error:', err);
+      setError(err);
+      throw err;
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const updateTask = async (id: string, data: UpdateTaskData) => {
     if (!userId) return;
 
+    setIsUpdating(true);
+    setError(null);
     try {
-      await updateTaskMutation({ id, data, userId }).unwrap();
-      refetch(); // Refresh the list
-    } catch (error) {
-      console.error('Update task error:', error);
-      throw error;
+      const updatedTask = await taskUseCases.updateTask(id, data, userId);
+      setTasks(prev => prev.map(task => task.id === id ? updatedTask : task));
+    } catch (err) {
+      console.error('Update task error:', err);
+      setError(err);
+      throw err;
+    } finally {
+      setIsUpdating(false);
     }
   };
 
   const deleteTask = async (id: string) => {
     if (!userId) return;
 
+    setIsDeleting(true);
+    setError(null);
     try {
-      await deleteTaskMutation({ id, userId }).unwrap();
-      refetch(); // Refresh the list
-    } catch (error) {
-      console.error('Delete task error:', error);
-      throw error;
+      await taskUseCases.deleteTask(id, userId);
+      setTasks(prev => prev.filter(task => task.id !== id));
+    } catch (err) {
+      console.error('Delete task error:', err);
+      setError(err);
+      throw err;
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -60,8 +96,12 @@ export const useTasks = () => {
     await updateTask(id, { completed: !currentCompleted });
   };
 
+  const refetch = () => {
+    loadTasks();
+  };
+
   return {
-    tasks: tasks || [],
+    tasks,
     isLoading,
     isCreating,
     isUpdating,
