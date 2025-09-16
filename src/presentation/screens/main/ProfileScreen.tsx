@@ -7,22 +7,13 @@ import { useReAuth } from '../../hooks/useReAuth';
 import { Button } from '../../components/Button';
 import { ReAuthModal } from '../../components/ReAuthModal';
 import { SetPINModal } from '../../components/SetPINModal';
-import { decode as base64Decode } from 'base-64';
-
-const decodeJWT = (token: string) => {
-  try {
-    const payload = token.split('.')[1];
-    const decoded = base64Decode(payload);
-    return JSON.parse(decoded);
-  } catch (e) {
-    return null;
-  }
-};
+import { useScopes } from '../../hooks/useScopes';
 
 export const ProfileScreen: React.FC = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const { logout: logoutUser, tokens } = useAuth();
   const { isReAuthenticated } = useReAuth();
+  const scopes = useScopes().getAllScopes();
 
   const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [showSetPINModal, setShowSetPINModal] = useState(false);
@@ -37,7 +28,6 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleSetPIN = () => {
-
     if (isReAuthenticated) {
       setShowSetPINModal(true);
     } else {
@@ -45,7 +35,7 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  const idTokenClaims = tokens?.idToken ? decodeJWT(tokens.idToken) : null;
+  const idTokenClaims = tokens?.idToken || null;
   const groups = idTokenClaims?.['cognito:groups'] || [];
 
   const handleLogout = async () => {
@@ -87,6 +77,19 @@ export const ProfileScreen: React.FC = () => {
                 {groups.map((group: string, index: number) => (
                   <Text key={index} style={styles.groupItem}>
                     {group}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {scopes.length > 0 && (
+            <View style={styles.infoItem}>
+              <Text style={styles.label}>Scopes:</Text>
+              <View style={styles.groupsContainer}>
+                {scopes.map((scope: string, index: number) => (
+                  <Text key={index} style={styles.groupItem}>
+                    {scope}
                   </Text>
                 ))}
               </View>
