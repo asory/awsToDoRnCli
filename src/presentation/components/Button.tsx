@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
-    marginVertical: 10,
+    marginVertical: 14,
   },
   primaryButton: {
     backgroundColor: '#007AFF',
