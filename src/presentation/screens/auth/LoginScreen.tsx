@@ -11,15 +11,15 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
+import Button from '../../components/Button';
+import Input from '../../components/Input';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
   'Login'
 >;
 
-export const LoginScreen: React.FC = () => {
+const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -206,3 +206,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 });
+
+export default LoginScreen;

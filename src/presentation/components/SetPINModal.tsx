@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useReAuth } from '../hooks/useReAuth';
-import { Button } from './Button';
+import Button from './Button';
 
 interface SetPINModalProps {
   visible: boolean;
@@ -20,13 +20,13 @@ interface SetPINModalProps {
   message?: string;
 }
 
-export const SetPINModal: React.FC<SetPINModalProps> = ({
+const SetPINModal = ({
   visible,
   onSuccess,
   onCancel,
   title = 'Set PIN',
   message = 'Enter a 4-digit PIN for authentication.',
-}) => {
+}: SetPINModalProps) => {
   const { setPIN, isLoading, error } = useReAuth();
   const [pin, setPin] = useState('');
 
@@ -205,3 +205,5 @@ const styles = StyleSheet.create({
     color: '#ccc',
   },
 });
+
+export default SetPINModal;

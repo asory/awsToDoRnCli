@@ -4,8 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
+import Button from '../../components/Button';
+import Input from '../../components/Input';
 import { validateEmail } from '../../../shared/utils/validation';
 
 type ForgotPasswordScreenNavigationProp = StackNavigationProp<
@@ -13,7 +13,7 @@ type ForgotPasswordScreenNavigationProp = StackNavigationProp<
   'ForgotPassword'
 >;
 
-export const ForgotPasswordScreen: React.FC = () => {
+const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -123,3 +123,5 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
+
+export default ForgotPasswordScreen;

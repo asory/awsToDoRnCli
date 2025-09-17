@@ -3,13 +3,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../application/store';
-import { AuthNavigator } from './AuthNavigator';
-import { MainNavigator } from './MainNavigator';
-import { LoadingScreen } from '../screens/LoadingScreen';
+import AuthNavigator from './AuthNavigator';
+import MainNavigator from './MainNavigator';
+import LoadingScreen from '../screens/LoadingScreen';
 
 const Stack = createStackNavigator();
 
-export const AppNavigator: React.FC = () => {
+const AppNavigator = () => {
   const { isAuthenticated, isLoading } = useSelector(
     (state: RootState) => state.auth,
   );
@@ -28,3 +28,5 @@ export const AppNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+
+export default AppNavigator;

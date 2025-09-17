@@ -11,13 +11,13 @@ import {
 import { useTasks } from '../../hooks/useTasks';
 import { useScopes } from '../../hooks/useScopes';
 import { Task } from '../../../core/entities/Task';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
+import Button from '../../components/Button';
+import Input from '../../components/Input';
 import { LocalStorage } from '../../../infrastructure/storage/LocalStorage';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../application/store';
 
-export const TasksScreen: React.FC = () => {
+const TasksScreen = () => {
   const {
     tasks,
     isLoading,
@@ -207,6 +207,8 @@ export const TasksScreen: React.FC = () => {
     </View>
   );
 };
+
+export default TasksScreen;
 
 const styles = StyleSheet.create({
   container: {

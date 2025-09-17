@@ -1,8 +1,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
-import { TasksScreen } from '../screens/main/TasksScreen';
-import { ProfileScreen } from '../screens/main/ProfileScreen';
+import TasksScreen from '../screens/main/TasksScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
 
 export type MainTabParamList = {
   Tasks: undefined;
@@ -37,7 +37,7 @@ const renderProfileIcon = ({
   </Text>
 );
 
-export const MainNavigator: React.FC = () => {
+const MainNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -73,3 +73,5 @@ export const MainNavigator: React.FC = () => {
     </Tab.Navigator>
   );
 };
+
+export default MainNavigator;

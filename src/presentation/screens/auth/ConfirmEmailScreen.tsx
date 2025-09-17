@@ -4,8 +4,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
+import Button from '../../components/Button';
+import Input from '../../components/Input';
 
 type ConfirmEmailScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -14,7 +14,7 @@ type ConfirmEmailScreenNavigationProp = StackNavigationProp<
 
 type ConfirmEmailRouteProp = RouteProp<AuthStackParamList, 'ConfirmEmail'>;
 
-export const ConfirmEmailScreen: React.FC = () => {
+const ConfirmEmailScreen = () => {
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -152,3 +152,5 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
+
+export default ConfirmEmailScreen;

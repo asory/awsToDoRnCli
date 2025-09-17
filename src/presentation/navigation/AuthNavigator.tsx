@@ -1,10 +1,10 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { LoginScreen } from '../screens/auth/LoginScreen';
-import { RegisterScreen } from '../screens/auth/RegisterScreen';
-import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
-import { ConfirmEmailScreen } from '../screens/auth/ConfirmEmailScreen';
-import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
+import LoginScreen from '../screens/auth/LoginScreen';
+import RegisterScreen from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ConfirmEmailScreen from '../screens/auth/ConfirmEmailScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -16,7 +16,7 @@ export type AuthStackParamList = {
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
-export const AuthNavigator: React.FC = () => {
+const AuthNavigator = () => {
   return (
     <Stack.Navigator
       initialRouteName="Login"
@@ -58,3 +58,5 @@ export const AuthNavigator: React.FC = () => {
     </Stack.Navigator>
   );
 };
+
+export default AuthNavigator;

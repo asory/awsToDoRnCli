@@ -13,7 +13,7 @@ interface InputProps {
   maxLength?: number;
 }
 
-export const Input: React.FC<InputProps> = ({
+const Input = ({
   label,
   value,
   onChangeText,
@@ -23,7 +23,7 @@ export const Input: React.FC<InputProps> = ({
   keyboardType = 'default',
   autoCapitalize = 'none',
   maxLength,
-}) => {
+}: InputProps) => {
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -42,6 +42,8 @@ export const Input: React.FC<InputProps> = ({
     </View>
   );
 };
+
+export default Input;
 
 const styles = StyleSheet.create({
   container: {

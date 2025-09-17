@@ -14,13 +14,13 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
 }
 
-export const Button: React.FC<ButtonProps> = ({
+const Button = ({
   title,
   onPress,
   disabled = false,
   loading = false,
   variant = 'primary',
-}) => {
+}: ButtonProps) => {
   const getButtonStyle = () => {
     switch (variant) {
       case 'secondary':
@@ -61,6 +61,8 @@ export const Button: React.FC<ButtonProps> = ({
     </TouchableOpacity>
   );
 };
+
+export default Button;
 
 const styles = StyleSheet.create({
   button: {

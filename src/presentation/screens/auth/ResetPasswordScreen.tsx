@@ -11,7 +11,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
-import { Button } from '../../components/Button';
+import Button from '../../components/Button';
 import { validateResetPasswordForm } from '../../../shared/utils/validation';
 
 type ResetPasswordScreenNavigationProp = StackNavigationProp<
@@ -24,7 +24,7 @@ type ResetPasswordScreenRouteProp = RouteProp<
   'ResetPassword'
 >;
 
-export const ResetPasswordScreen: React.FC = () => {
+const ResetPasswordScreen = () => {
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -94,7 +94,9 @@ export const ResetPasswordScreen: React.FC = () => {
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Reset Code</Text>
-          <View style={[styles.inputWrapper, codeError && styles.inputError]}>
+          <View
+            style={[styles.passwordContainer, codeError && styles.inputError]}
+          >
             <TextInput
               style={styles.input}
               value={code}
@@ -273,3 +275,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
+export default ResetPasswordScreen;

@@ -11,8 +11,8 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAuth } from '../../hooks/useAuth';
-import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
+import Button from '../../components/Button';
+import Input from '../../components/Input';
 import { validateRegistrationForm } from '../../../shared/utils/validation';
 
 type RegisterScreenNavigationProp = StackNavigationProp<
@@ -20,7 +20,7 @@ type RegisterScreenNavigationProp = StackNavigationProp<
   'Register'
 >;
 
-export const RegisterScreen: React.FC = () => {
+const RegisterScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -247,3 +247,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
+export default RegisterScreen;
