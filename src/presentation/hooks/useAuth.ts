@@ -1,13 +1,14 @@
 import { useSelector, useDispatch } from 'react-redux';
-import { useRef, useEffect, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { RootState, AppDispatch } from '../../application/store';
-import { loginStart, loginSuccess, loginFailure, logout, refreshTokenSuccess, proactiveRefreshSuccess, setLoading } from '../../application/slices/authSlice';
+import { loginStart, loginSuccess, loginFailure, logout, refreshTokenSuccess, setLoading } from '../../application/slices/authSlice';
 import { CognitoService } from '../../infrastructure/services/CognitoService';
-import { SecureStorage } from '../../infrastructure/storage/SecureStorage';
 import { ApiClient } from '../../infrastructure/api/ApiClient';
-import { tasksApi } from '../../application/slices/tasksApi';
 import { reAuthService } from '../../infrastructure/services/BiometricService';
 import { LoginCredentials, RegisterData } from '../../core/entities/User';
+import { useTokenRefresh } from './useTokenRefresh';
+import { useSecureTokenStorage } from './useSecureTokenStorage';
+import { useAuthValidation } from './useAuthValidation';
 
 export const useAuth = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -15,295 +16,234 @@ export const useAuth = () => {
     (state: RootState) => state.auth
   );
 
-  // Refs for managing background token refresh
-  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const refreshInProgressRef = useRef(false);
+  const { stopTokenRefresh } = useTokenRefresh();
+  const { storeTokens, clearTokens, getStoredTokens, validateStoredTokens } = useSecureTokenStorage();
+  const { handleAuthError } = useAuthValidation();
+  
+  const cognitoService = useMemo(() => new CognitoService(), []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     dispatch(loginStart());
 
     try {
-      const cognitoService = new CognitoService();
       const result = await cognitoService.login(credentials);
-
-      // Store tokens securely with expiration
-      await SecureStorage.storeToken('access', result.tokens.accessToken, result.tokens.expiresIn ? (result.tokens.expiresIn - Date.now()) / 1000 : undefined);
-      if (result.tokens.refreshToken) {
-        await SecureStorage.storeToken('refresh', result.tokens.refreshToken);
-      }
-
+      await storeTokens(result.tokens);
       dispatch(loginSuccess(result));
       return { success: true };
-    } catch (error: any) {
-      console.log('Auth hook error details:', error);
+    } catch (loginError: any) {
 
       // Handle case where user is already signed in
-      if (error.message?.includes('There is already a signed in user') ||
-          error.message?.includes('already a signed in user')) {
+      if (loginError.message?.includes('There is already a signed in user') ||
+          loginError.message?.includes('already a signed in user')) {
         try {
-          console.log('User already signed in, checking current authentication status');
-
-          const cognitoService = new CognitoService();
-          // Check if user is already authenticated
+          
           const currentUser = await cognitoService.getCurrentUser();
           if (currentUser) {
-            // Get current tokens
-            const tokens = await cognitoService.refreshToken('');
-
-            // Store tokens securely with expiration
-            await SecureStorage.storeToken('access', tokens.accessToken, tokens.expiresIn ? (tokens.expiresIn - Date.now()) / 1000 : undefined);
-            if (tokens.refreshToken) {
-              await SecureStorage.storeToken('refresh', tokens.refreshToken);
-            }
-
-            dispatch(loginSuccess({ user: currentUser, tokens }));
-            console.log('Successfully restored existing session');
+            const refreshedTokens = await cognitoService.refreshToken('');
+            await storeTokens(refreshedTokens);
+            dispatch(loginSuccess({ user: currentUser, tokens: refreshedTokens }));
             return { success: true, alreadyAuthenticated: true };
           }
         } catch (restoreError: any) {
-          console.error('Failed to restore existing session:', restoreError);
-          // Fall through to error handling
         }
       }
 
-      dispatch(loginFailure(error.message));
-      return { success: false, error: error.message };
+      const authError = handleAuthError(loginError, 'login');
+      dispatch(loginFailure(authError.message));
+      return { success: false, error: authError.message };
     }
-  };
+  }, [dispatch, cognitoService, storeTokens, handleAuthError]);
 
-  // Function to stop background token refresh
-  const stopTokenRefresh = useCallback(() => {
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
-      refreshIntervalRef.current = null;
-      refreshInProgressRef.current = false;
-      console.log('Background token refresh stopped');
+
+
+
+  const logoutUser = useCallback(async () => {
+    const cleanupTasks = [
+      () => stopTokenRefresh(),
+      () => cognitoService.logout(),
+      () => ApiClient.getInstance().clearAuthTokens(),
+      () => clearTokens(),
+      () => reAuthService.clearReAuthState(),
+      () => dispatch(logout())
+    ];
+    
+    for (const task of cleanupTasks) {
+      try {
+        await task();
+      } catch (logoutError) {
+      }
     }
-  }, []);
+  }, [stopTokenRefresh, cognitoService, clearTokens, dispatch]);
 
-
-
-  const logoutUser = async () => {
+  const register = useCallback(async (data: RegisterData) => {
     try {
-      // Stop background refresh immediately
-      stopTokenRefresh();
-
-      const cognitoService = new CognitoService();
-      await cognitoService.logout();
-
-      // Clear tokens from API client memory
-      const apiClient = ApiClient.getInstance();
-      apiClient.clearAuthTokens();
-
-      // Clear all secure storage (this is redundant with CognitoService.logout but ensures completeness)
-      await SecureStorage.clearAll();
-
-      // Clear RTK Query cache for user-specific data
-      dispatch(tasksApi.util.resetApiState());
-
-      // Clear re-authentication state
-      await reAuthService.clearReAuthState();
-
-      // Reset Redux state
-      dispatch(logout());
-
-      console.log('Logout completed successfully');
-    } catch (error: any) {
-      console.error('Logout error:', error);
-      // Even if logout fails, stop refresh and clear local state
-      stopTokenRefresh();
-      const apiClient = ApiClient.getInstance();
-      apiClient.clearAuthTokens();
-      await SecureStorage.clearAll();
-
-      // Clear RTK Query cache for user-specific data
-      dispatch(tasksApi.util.resetApiState());
-
-      // Clear re-authentication state
-      await reAuthService.clearReAuthState();
-
-      dispatch(logout());
+        const newUser = await cognitoService.register(data);
+      return { success: true, user: newUser };
+    } catch (registerError: any) {
+      const authError = handleAuthError(registerError, 'register');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const register = async (data: RegisterData) => {
+  const confirmEmail = useCallback(async (email: string, code: string) => {
     try {
-      const cognitoService = new CognitoService();
-      const user = await cognitoService.register(data);
-      return { success: true, user };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  };
-
-  const confirmEmail = async (email: string, code: string) => {
-    try {
-      const cognitoService = new CognitoService();
       await cognitoService.confirmEmail(email, code);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (confirmError: any) {
+      const authError = handleAuthError(confirmError, 'confirmEmail');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const forgotPassword = async (email: string) => {
+  const forgotPassword = useCallback(async (email: string) => {
     try {
-      const cognitoService = new CognitoService();
       await cognitoService.forgotPassword(email);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (forgotError: any) {
+      const authError = handleAuthError(forgotError, 'forgotPassword');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const confirmForgotPassword = async (email: string, code: string, newPassword: string) => {
+  const confirmForgotPassword = useCallback(async (email: string, code: string, newPassword: string) => {
     try {
-      const cognitoService = new CognitoService();
       await cognitoService.confirmForgotPassword(email, code, newPassword);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (confirmForgotError: any) {
+      const authError = handleAuthError(confirmForgotError, 'confirmForgotPassword');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const resendSignUpCode = async (email: string) => {
+  const resendSignUpCode = useCallback(async (email: string) => {
     try {
-      const cognitoService = new CognitoService();
       await cognitoService.resendSignUpCode(email);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (resendError: any) {
+      const authError = handleAuthError(resendError, 'resendSignUpCode');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     try {
-      const cognitoService = new CognitoService();
       await cognitoService.resetPassword(email);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (resetError: any) {
+      const authError = handleAuthError(resetError, 'resetPassword');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const confirmResetPassword = async (email: string, code: string, newPassword: string) => {
+  const confirmResetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
     try {
-      const cognitoService = new CognitoService();
       await cognitoService.confirmResetPassword(email, code, newPassword);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (confirmResetError: any) {
+      const authError = handleAuthError(confirmResetError, 'confirmResetPassword');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const updateUserPassword = async (oldPassword: string, newPassword: string) => {
+  const updateUserPassword = useCallback(async (oldPassword: string, newPassword: string) => {
     try {
-      const cognitoService = new CognitoService();
       await cognitoService.updatePassword(oldPassword, newPassword);
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (updateError: any) {
+      const authError = handleAuthError(updateError, 'updatePassword');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, handleAuthError]);
 
-  const refreshToken = async () => {
+  const refreshToken = useCallback(async () => {
     try {
-      const refreshTokenValue = await SecureStorage.getToken('refresh');
+      const { refresh: refreshTokenValue } = await getStoredTokens();
       if (refreshTokenValue) {
-        const cognitoService = new CognitoService();
         const newTokens = await cognitoService.refreshToken(refreshTokenValue);
-
-        // Store new tokens securely with expiration
-        await SecureStorage.storeToken('access', newTokens.accessToken, newTokens.expiresIn ? (newTokens.expiresIn - Date.now()) / 1000 : undefined);
-        if (newTokens.refreshToken) {
-          await SecureStorage.storeToken('refresh', newTokens.refreshToken);
-        }
-
-        // Update Redux state
+        await storeTokens(newTokens);
         dispatch(refreshTokenSuccess(newTokens));
         return { success: true, tokens: newTokens };
       }
       return { success: false, error: 'No refresh token available' };
-    } catch (error: any) {
-      console.error('Token refresh error:', error);
-      return { success: false, error: error.message };
+    } catch (refreshError: any) {
+      const authError = handleAuthError(refreshError, 'refreshToken');
+      return { success: false, error: authError.message };
     }
-  };
+  }, [cognitoService, storeTokens, getStoredTokens, dispatch, handleAuthError]);
 
-  const refreshTokenProactively = useCallback(async () => {
-    try {
-      const cognitoService = new CognitoService();
-      const newTokens = await cognitoService.refreshTokenIfNeeded();
 
-      if (newTokens) {
-        // Update Redux state with new tokens
-        dispatch(proactiveRefreshSuccess(newTokens));
-        return { success: true, tokens: newTokens };
-      }
-
-      return { success: false, error: 'Token refresh not needed or failed' };
-    } catch (error: any) {
-      console.error('Proactive token refresh error:', error);
-      return { success: false, error: error.message };
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Function to start background token refresh
-  const startTokenRefresh = useCallback(() => {
-    if (!isAuthenticated || refreshIntervalRef.current) return;
-
-    refreshIntervalRef.current = setInterval(async () => {
-      if (refreshInProgressRef.current) return;
-
-      try {
-        refreshInProgressRef.current = true;
-        await refreshTokenProactively();
-      } catch (error) {
-        console.error('Automatic token refresh failed:', error);
-      } finally {
-        refreshInProgressRef.current = false;
-      }
-    }, 2 * 60 * 1000); // 2 minutes
-
-    console.log('Background token refresh started');
-  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Manage token refresh interval based on authentication state
-  useEffect(() => {
-    if (isAuthenticated) {
-      startTokenRefresh();
-    } else {
-      stopTokenRefresh();
-    }
-
-    return () => {
-      stopTokenRefresh();
-    };
-  }, [isAuthenticated, startTokenRefresh, stopTokenRefresh]);
 
   const checkAuthStatus = useCallback(async () => {
     dispatch(setLoading(true));
+    
     try {
-      const token = await SecureStorage.getToken('access');
-      if (token) {
-        const cognitoService = new CognitoService();
-        const user = await cognitoService.getCurrentUser();
-        if (user) {
-          // Fetch current tokens
-          const tokens = await cognitoService.refreshToken('');
-          dispatch(loginSuccess({ user, tokens }));
-          dispatch(setLoading(false));
-          return true;
+      // First check if we have stored tokens
+      const { access: accessToken, refresh: refreshTokenValue } = await getStoredTokens();
+      
+      if (!accessToken) {
+        await clearTokens();
+        return false;
+      }
+      
+      // Validate token and get current user
+      const [isTokenValid, currentUser] = await Promise.all([
+        validateStoredTokens(),
+        cognitoService.getCurrentUser()
+      ]);
+      
+      if (!isTokenValid || !currentUser) {
+        // Try to refresh tokens if we have a refresh token
+        if (refreshTokenValue) {
+          try {
+            const newTokens = await cognitoService.refreshToken(refreshTokenValue);
+            await storeTokens(newTokens);
+            
+            // Try to get user again with new tokens
+            const userAfterRefresh = await cognitoService.getCurrentUser();
+            if (userAfterRefresh) {
+              dispatch(loginSuccess({ user: userAfterRefresh, tokens: newTokens }));
+              return true;
+            }
+          } catch (refreshError) {
+          }
+        }
+        
+        await clearTokens();
+        return false;
+      }
+      
+      // Check if token needs proactive refresh
+      const refreshedTokens = await cognitoService.refreshTokenIfNeeded();
+      const finalTokens = refreshedTokens || {
+        accessToken: accessToken,
+        refreshToken: refreshTokenValue || '',
+        idToken: '', // Will be filled by getAuthTokens if needed
+        expiresIn: 0,
+        tokenType: 'Bearer',
+        scopes: []
+      };
+      
+      // If we don't have complete token info, try to get it
+      if (!finalTokens.idToken) {
+        try {
+          const completeTokens = await cognitoService.getAuthTokens();
+          if (completeTokens) {
+            Object.assign(finalTokens, completeTokens);
+          }
+        } catch (getTokensError) {
         }
       }
-      dispatch(setLoading(false));
+      
+      dispatch(loginSuccess({ user: currentUser, tokens: finalTokens }));
+      return true;
+      
+    } catch (checkError) {
+      await clearTokens();
       return false;
-    } catch (error) {
-      console.error('Auth check error:', error);
+    } finally {
       dispatch(setLoading(false));
-      return false;
     }
-  }, [dispatch]);
+  }, [dispatch, getStoredTokens, validateStoredTokens, clearTokens, cognitoService, storeTokens]);
 
 
   return {
@@ -323,7 +263,6 @@ export const useAuth = () => {
     updatePassword: updateUserPassword,
     logout: logoutUser,
     refreshToken,
-    refreshTokenProactively,
     checkAuthStatus,
   };
 };

@@ -14,15 +14,29 @@ const AppNavigator = () => {
     (state: RootState) => state.auth,
   );
 
+  console.log('🏠 Navigator: Auth state -', { isAuthenticated, isLoading });
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isLoading ? (
-          <Stack.Screen name="Loading" component={LoadingScreen} />
+          <Stack.Screen
+            name="Loading"
+            component={LoadingScreen}
+            options={{ gestureEnabled: false }}
+          />
         ) : isAuthenticated ? (
-          <Stack.Screen name="Main" component={MainNavigator} />
+          <Stack.Screen
+            name="Main"
+            component={MainNavigator}
+            options={{ gestureEnabled: false }}
+          />
         ) : (
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+          <Stack.Screen
+            name="Auth"
+            component={AuthNavigator}
+            options={{ gestureEnabled: false }}
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>

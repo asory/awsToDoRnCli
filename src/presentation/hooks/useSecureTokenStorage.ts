@@ -15,7 +15,6 @@ export const useSecureTokenStorage = () => {
         await SecureStorage.storeToken('refresh', tokens.refreshToken);
       }
     } catch (error) {
-      console.error('Error storing tokens:', error);
       throw error;
     }
   }, []);
@@ -29,7 +28,6 @@ export const useSecureTokenStorage = () => {
       
       return { access: accessToken, refresh: refreshToken };
     } catch (error) {
-      console.error('Error retrieving tokens:', error);
       return { access: null, refresh: null };
     }
   }, []);
@@ -41,7 +39,6 @@ export const useSecureTokenStorage = () => {
       
       return await SecureStorage.validateToken(access);
     } catch (error) {
-      console.error('Error validating stored tokens:', error);
       return false;
     }
   }, [getStoredTokens]);
@@ -50,7 +47,6 @@ export const useSecureTokenStorage = () => {
     try {
       await SecureStorage.clearAll();
     } catch (error) {
-      console.error('Error clearing tokens:', error);
       throw error;
     }
   }, []);
@@ -59,7 +55,6 @@ export const useSecureTokenStorage = () => {
     try {
       await SecureStorage.cleanupExpiredTokens();
     } catch (error) {
-      console.error('Error cleaning up expired tokens:', error);
     }
   }, []);
 
