@@ -20,7 +20,29 @@ export const useScopes = () => {
   };
 
   const hasAdminScope = (): boolean => {
-    return hasScope('aws.cognito.signin.user.admin');
+    const groups = getUserGroups();
+    return groups.some(group => group.trim() === 'admins');
+  };
+
+  const getUserGroups = (): string[] => {
+    if (!tokens?.accessToken) return [];
+    
+    try {
+      const payload = JSON.parse(atob(tokens.accessToken.split('.')[1]));
+      const groups: string[] = [];
+      
+      if (payload['cognito:groups']) {
+        if (Array.isArray(payload['cognito:groups'])) {
+          groups.push(...payload['cognito:groups']);
+        } else if (typeof payload['cognito:groups'] === 'string') {
+          groups.push(...payload['cognito:groups'].split(','));
+        }
+      }
+      
+      return groups.map(group => group.trim());
+    } catch (error) {
+      return [];
+    }
   };
 
   const getAllScopes = (): string[] => {
@@ -34,5 +56,6 @@ export const useScopes = () => {
     hasReadScope,
     hasAdminScope,
     getAllScopes,
+    getUserGroups,
   };
 };

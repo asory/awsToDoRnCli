@@ -12,7 +12,9 @@ import { reAuthService } from '../../../infrastructure/services/BiometricService
 const ProfileScreen = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const { logout: logoutUser, tokens } = useAuth();
-  const scopes = useScopes().getAllScopes();
+  const { getAllScopes, getUserGroups } = useScopes();
+  const scopes = getAllScopes();
+  const userGroups = getUserGroups();
 
   const [showSetPINModal, setShowSetPINModal] = useState(false);
 
@@ -61,6 +63,27 @@ const ProfileScreen = () => {
           <View style={styles.infoItem}>
             <Text style={styles.label}>Email:</Text>
             <Text style={styles.value}>{user.email}</Text>
+          </View>
+
+          <View style={styles.infoItem}>
+            <Text style={styles.label}>Groups:</Text>
+            <View style={styles.groupsContainer}>
+              {userGroups.length > 0 ? (
+                userGroups.map((group, index) => (
+                  <Text
+                    key={index}
+                    style={[
+                      styles.groupItem,
+                      group === 'admins' && styles.adminGroup,
+                    ]}
+                  >
+                    {group}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.groupItem}>No groups assigned</Text>
+              )}
+            </View>
           </View>
         </View>
 
@@ -205,5 +228,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     marginBottom: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    textAlign: 'center',
+    minWidth: 60,
+  },
+  adminGroup: {
+    backgroundColor: '#ffebee',
+    color: '#c62828',
+    fontWeight: '600',
   },
 });
