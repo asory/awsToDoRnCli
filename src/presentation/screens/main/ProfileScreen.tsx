@@ -3,40 +3,38 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../application/store';
 import { useAuth } from '../../hooks/useAuth';
-import { useReAuth } from '../../hooks/useReAuth';
-import { Button } from '../../components/Button';
-import { ReAuthModal } from '../../components/ReAuthModal';
-import { SetPINModal } from '../../components/SetPINModal';
+import Button from '../../components/Button';
+import SetPINModal from '../../components/SetPINModal';
+import ProtectedDataView from '../../components/ProtectedDataView';
 import { useScopes } from '../../hooks/useScopes';
+import { reAuthService } from '../../../infrastructure/services/BiometricService';
 
-export const ProfileScreen: React.FC = () => {
+const ProfileScreen = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const { logout: logoutUser, tokens } = useAuth();
-  const { isReAuthenticated } = useReAuth();
   const scopes = useScopes().getAllScopes();
 
-  const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [showSetPINModal, setShowSetPINModal] = useState(false);
 
-  const handleReAuthSuccess = () => {
-    setShowReAuthModal(false);
-    setShowSetPINModal(true);
-  };
+  const handleSetPIN = async () => {
+    try {
+      const config = {
+        promptMessage: 'Confirm your identity to set PIN',
+        cancelButtonText: 'Cancel',
+      };
 
-  const handleReAuthCancel = () => {
-    setShowReAuthModal(false);
-  };
+      const result = await reAuthService.authenticateWithBiometrics(config);
 
-  const handleSetPIN = () => {
-    if (isReAuthenticated) {
-      setShowSetPINModal(true);
-    } else {
-      setShowReAuthModal(true);
+      if (result.success) {
+        setShowSetPINModal(true);
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
     }
   };
 
   const idTokenClaims = tokens?.idToken || null;
-  const groups = idTokenClaims?.['cognito:groups'] || [];
+  const groups: string[] = (idTokenClaims as any)?.['cognito:groups'] || [];
 
   const handleLogout = async () => {
     await logoutUser();
@@ -64,36 +62,33 @@ export const ProfileScreen: React.FC = () => {
             <Text style={styles.label}>Email:</Text>
             <Text style={styles.value}>{user.email}</Text>
           </View>
+        </View>
 
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>User ID:</Text>
-            <Text style={styles.value}>{user.id}</Text>
-          </View>
+        {/* Protected Data Section */}
+        <View style={styles.protectedSection}>
+          <Text style={styles.sectionTitle}>Sensitive Information</Text>
+          <Text style={styles.sectionSubtitle}>
+            These data require biometric authentication or PIN
+          </Text>
+
+          <ProtectedDataView title="User ID" data={user.id} icon="🆔" />
 
           {groups.length > 0 && (
-            <View style={styles.infoItem}>
-              <Text style={styles.label}>Groups:</Text>
-              <View style={styles.groupsContainer}>
-                {groups.map((group: string, index: number) => (
-                  <Text key={index} style={styles.groupItem}>
-                    {group}
-                  </Text>
-                ))}
-              </View>
-            </View>
+            <ProtectedDataView
+              title="User Groups"
+              data={groups}
+              isArray={true}
+              icon="👥"
+            />
           )}
 
           {scopes.length > 0 && (
-            <View style={styles.infoItem}>
-              <Text style={styles.label}>Scopes:</Text>
-              <View style={styles.groupsContainer}>
-                {scopes.map((scope: string, index: number) => (
-                  <Text key={index} style={styles.groupItem}>
-                    {scope}
-                  </Text>
-                ))}
-              </View>
-            </View>
+            <ProtectedDataView
+              title="Permissions (Scopes)"
+              data={scopes}
+              isArray={true}
+              icon="🔑"
+            />
           )}
         </View>
 
@@ -110,13 +105,6 @@ export const ProfileScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      <ReAuthModal
-        visible={showReAuthModal}
-        onSuccess={handleReAuthSuccess}
-        onCancel={handleReAuthCancel}
-        title="Re-authenticate to Set PIN"
-        message="Please confirm your identity to set an authenticated PIN."
-      />
       <SetPINModal
         visible={showSetPINModal}
         onSuccess={() => setShowSetPINModal(false)}
@@ -126,41 +114,62 @@ export const ProfileScreen: React.FC = () => {
   );
 };
 
+export default ProfileScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   header: {
-    padding: 20,
+    padding: 24,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  section: {
-    backgroundColor: '#fff',
-    margin: 20,
-    padding: 20,
-    borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  section: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  protectedSection: {
+    margin: 16,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
     marginBottom: 15,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
   },
   infoItem: {
     flexDirection: 'row',

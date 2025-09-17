@@ -19,6 +19,7 @@ export interface UseReAuthReturn {
   authenticateWithPIN: (pin: string) => Promise<ReAuthResult>;
   setPIN: (pin: string) => Promise<{ success: boolean; error?: string }>;
   checkReAuthStatus: () => Promise<boolean>;
+  isReAuthValid: () => Promise<boolean>;
   clearReAuthSession: () => Promise<void>;
   initializeBiometrics: () => Promise<{ success: boolean; error?: string }>;
 }
@@ -43,7 +44,6 @@ export const useReAuth = (): UseReAuthReturn => {
       setBiometryType(result.biometryType || null);
       return { success: result.available || false, error: result.error };
     } catch (error: any) {
-      console.error('Failed to initialize biometrics:', error);
       setBiometricAvailable(false);
       setBiometryType(null);
       return { success: false, error: error.message };
@@ -63,11 +63,17 @@ export const useReAuth = (): UseReAuthReturn => {
 
       return isValid;
     } catch (error: any) {
-      console.error('Failed to check re-auth status:', error);
       dispatch(setReAuthError(error.message));
       return false;
     }
   }, [dispatch]);
+
+  /**
+   * Alias for checkReAuthStatus for backward compatibility
+   */
+  const isReAuthValid = useCallback(async (): Promise<boolean> => {
+    return await checkReAuthStatus();
+  }, [checkReAuthStatus]);
 
   /**
      * Perform biometric authentication with device PIN fallback
@@ -80,7 +86,6 @@ export const useReAuth = (): UseReAuthReturn => {
         const result = await reAuthService.authenticateWithBiometrics({
           promptMessage: 'Confirm your identity to access sensitive information',
           cancelButtonText: 'Cancel',
-          allowDeviceCredentials: true,
         });
 
        if (result.success) {
@@ -229,6 +234,7 @@ export const useReAuth = (): UseReAuthReturn => {
     authenticateWithPIN,
     setPIN,
     checkReAuthStatus,
+    isReAuthValid,
     clearReAuthSession,
     initializeBiometrics,
   };

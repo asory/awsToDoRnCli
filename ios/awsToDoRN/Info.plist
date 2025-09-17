@@ -31,6 +31,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>This app uses Face ID to protect your sensitive data and enhance account security.</string>
+	<key>NSBiometricUsageDescription</key>
+	<string>This app uses biometric authentication to protect your sensitive data.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>RCTNewArchEnabled</key>

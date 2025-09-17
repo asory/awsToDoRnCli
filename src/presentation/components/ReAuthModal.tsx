@@ -11,23 +11,25 @@ import {
   Platform,
 } from 'react-native';
 import { useReAuth } from '../hooks/useReAuth';
-import { Button } from './Button';
+import Button from './Button';
 
 interface ReAuthModalProps {
   visible: boolean;
   onSuccess: () => void;
   onCancel: () => void;
+  onNeedsPIN?: () => void;
   title?: string;
   message?: string;
 }
 
-export const ReAuthModal: React.FC<ReAuthModalProps> = ({
+const ReAuthModal = ({
   visible,
   onSuccess,
   onCancel,
+  onNeedsPIN,
   title = 'Re-authentication Required',
   message = 'Please confirm your identity to access sensitive information.',
-}) => {
+}: ReAuthModalProps) => {
   const {
     isLoading,
     error,
@@ -57,13 +59,18 @@ export const ReAuthModal: React.FC<ReAuthModalProps> = ({
       if (result.success) {
         onSuccess();
       } else {
-        Alert.alert(
-          'Authentication Failed',
-          result.error || 'Authentication failed.',
-        );
+        // Handle case where PIN is required
+        if (result.error?.includes('PIN required') && onNeedsPIN) {
+          onNeedsPIN();
+        } else {
+          Alert.alert(
+            'Authentication Failed',
+            result.error || 'Authentication failed.',
+          );
+        }
       }
-    } catch (error: any) {
-      console.error('Auth error:', error);
+    } catch (e: any) {
+      console.error('Auth error:', e);
       Alert.alert('Error', 'Authentication failed. Please try again.');
     }
   };
@@ -103,6 +110,9 @@ export const ReAuthModal: React.FC<ReAuthModalProps> = ({
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
+            <View style={styles.iconContainer}>
+              <Text style={styles.modalIcon}>🔐</Text>
+            </View>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.message}>{message}</Text>
 
@@ -177,18 +187,25 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 24,
     width: '90%',
     maxWidth: 400,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIcon: {
+    fontSize: 48,
   },
   title: {
     fontSize: 20,
@@ -253,3 +270,5 @@ const styles = StyleSheet.create({
     color: '#ccc',
   },
 });
+
+export default ReAuthModal;

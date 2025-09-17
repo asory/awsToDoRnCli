@@ -1,4 +1,4 @@
-import ReactNativeBiometrics from 'react-native-biometrics';
+import * as Keychain from 'react-native-keychain';
 import { Platform } from 'react-native';
 import { SecureStorage } from '../storage/SecureStorage';
 
@@ -16,11 +16,6 @@ export interface BiometricConfig {
 
 export class BiometricService {
   private static instance: BiometricService;
-  private biometrics: typeof ReactNativeBiometrics;
-
-  private constructor() {
-    this.biometrics = ReactNativeBiometrics;
-  }
 
   static getInstance(): BiometricService {
     if (!BiometricService.instance) {
@@ -30,17 +25,17 @@ export class BiometricService {
   }
 
   /**
-   * Check if biometric authentication is available on the device
+   * Check if biometric authentication is available using Keychain
    */
   async isBiometricAvailable(): Promise<{ available: boolean; biometryType?: string; error?: string }> {
     try {
-      const result = await (ReactNativeBiometrics as any).isSensorAvailable();
+      const biometryType = await Keychain.getSupportedBiometryType();
+      
       return {
-        available: result.available,
-        biometryType: result.biometryType,
+        available: !!biometryType,
+        biometryType: biometryType || undefined,
       };
     } catch (error: any) {
-      console.error('Biometric availability check failed:', error);
       return {
         available: false,
         error: error.message || 'Biometric check failed',
@@ -48,50 +43,204 @@ export class BiometricService {
     }
   }
 
-  /**
-   * Create biometric keys for the user
-   */
-  async createBiometricKeys(): Promise<{ success: boolean; publicKey?: string; error?: string }> {
-    try {
-      const result = await (this.biometrics as any).createKeys();
-      if (result.publicKey) {
-        // Store the public key securely
-        await SecureStorage.storeBiometricKey(result.publicKey);
-        return { success: true, publicKey: result.publicKey };
-      } else {
-        return { success: false, error: 'Failed to create biometric keys' };
-      }
-    } catch (error: any) {
-      console.error('Biometric key creation failed:', error);
-      return { success: false, error: error.message || 'Key creation failed' };
-    }
-  }
 
   /**
-   * Perform biometric authentication
+   * Authenticate with device passcode when biometry is not available
    */
-  async authenticateWithBiometrics(config: BiometricConfig): Promise<ReAuthResult> {
+  async authenticateWithDevicePasscode(config: BiometricConfig): Promise<ReAuthResult> {
     try {
-      const { promptMessage, cancelButtonText, allowDeviceCredentials = true } = config;
+      const { promptMessage } = config;
+      const testService = 'device_passcode_test';
 
-      const result = await (this.biometrics as any).simplePrompt({
-        promptMessage,
-        cancelButtonText,
-        allowDeviceCredentials,
+      await Keychain.setGenericPassword('passcode_user', 'passcode_pass', {
+        service: testService,
+        accessControl: Keychain.ACCESS_CONTROL.DEVICE_PASSCODE,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        authenticationType: Keychain.AUTHENTICATION_TYPE.DEVICE_PASSCODE_OR_BIOMETRICS,
+      });
+      
+      const result = await Keychain.getGenericPassword({
+        service: testService,
+        authenticationPrompt: { title: promptMessage },
+        authenticationType: Keychain.AUTHENTICATION_TYPE.DEVICE_PASSCODE_OR_BIOMETRICS,
       });
 
-      if (result.success) {
-        // Update re-auth timestamp
+      await Keychain.resetGenericPassword({ service: testService });
+
+      if (result && result.username === 'passcode_user') {
         await this.updateReAuthTimestamp();
         return { success: true, method: 'biometric' };
       } else {
-        return { success: false, method: 'biometric', error: result.error || 'Biometric authentication failed' };
+        return { success: false, method: 'biometric', error: 'Device passcode authentication failed' };
       }
     } catch (error: any) {
-      console.error('Biometric authentication failed:', error);
+      try {
+        await Keychain.resetGenericPassword({ service: 'device_passcode_test' });
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
+      if (error.message?.includes('Cancel') || error.message?.includes('cancel')) {
+        return { success: false, method: 'biometric', error: 'User cancelled device passcode' };
+      }
+      
+      return { success: false, method: 'biometric', error: error.message || 'Device passcode authentication failed' };
+    }
+  }
+
+  /**
+   * Simple iOS biometric authentication using keychain credentials
+   */
+  async authenticateWithBiometricsIOSSimple(config: BiometricConfig): Promise<ReAuthResult> {
+    try {
+      const biometryType = await Keychain.getSupportedBiometryType();
+      
+      if (!biometryType) {
+        return await this.authenticateWithDevicePasscode(config);
+      }
+      
+      const { promptMessage } = config;
+      const testService = 'biometric_auth_test';
+
+      await Keychain.setGenericPassword('auth_user', 'auth_pass', {
+        service: testService,
+        accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_CURRENT_SET,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const result = await Keychain.getGenericPassword({
+        service: testService,
+        authenticationPrompt: { title: promptMessage },
+      });
+
+      await Keychain.resetGenericPassword({ service: testService });
+
+      if (result && result.username === 'auth_user') {
+        await this.updateReAuthTimestamp();
+        return { success: true, method: 'biometric' };
+      } else {
+        return { success: false, method: 'biometric', error: 'Face ID authentication failed' };
+      }
+    } catch (error: any) {
+      try {
+        await Keychain.resetGenericPassword({ service: 'biometric_auth_test' });
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
+      if (error.message?.includes('Cancel') || error.message?.includes('cancel') || error.message?.includes('User cancel')) {
+        return { success: false, method: 'biometric', error: 'User cancelled Face ID' };
+      }
+      
+      return await this.authenticateWithDevicePasscode(config);
+    }
+  }
+
+  /**
+   * Full iOS-specific biometric authentication with fallback support
+   */
+  async authenticateWithBiometricsIOS(config: BiometricConfig): Promise<ReAuthResult> {
+    try {
+      const biometryType = await Keychain.getSupportedBiometryType();
+      
+      if (!biometryType) {
+        return { success: false, method: 'biometric', error: 'Biometric authentication not available' };
+      }
+      
+      const { promptMessage } = config;
+      const testService = 'awsToDoRN_biometric_ios';
+      const testUsername = 'biometric_test';
+      const testPassword = 'test_value';
+
+      await Keychain.setGenericPassword(testUsername, testPassword, {
+        service: testService,
+        accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+        authenticationType: Keychain.AUTHENTICATION_TYPE.DEVICE_PASSCODE_OR_BIOMETRICS,
+      });
+
+      const result = await Keychain.getGenericPassword({
+        service: testService,
+        authenticationPrompt: { title: promptMessage },
+      });
+
+      await Keychain.resetGenericPassword({ service: testService });
+
+      if (result && result.username === testUsername) {
+        await this.updateReAuthTimestamp();
+        return { success: true, method: 'biometric' };
+      } else {
+        return { success: false, method: 'biometric', error: 'Biometric authentication failed' };
+      }
+    } catch (error: any) {
+      try {
+        await Keychain.resetGenericPassword({ service: 'awsToDoRN_biometric_ios' });
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+
+      if (error.message?.includes('Cancel') || error.message?.includes('cancel')) {
+        return { success: false, method: 'biometric', error: 'User cancelled authentication' };
+      }
+
       return { success: false, method: 'biometric', error: error.message || 'Biometric authentication error' };
     }
   }
+
+  /**
+   * Perform biometric authentication using Keychain
+   */
+  async authenticateWithBiometrics(config: BiometricConfig): Promise<ReAuthResult> {
+    if (Platform.OS === 'ios') {
+      return await this.authenticateWithBiometricsIOSSimple(config);
+    }
+
+    try {
+      const { promptMessage } = config;
+
+      const testKey = `biometric_${Date.now()}`;
+      const testValue = 'biometric_test';
+
+      await Keychain.setGenericPassword(testKey, testValue, {
+        service: 'awsToDoRN_biometric',
+        accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
+        authenticationPrompt: { title: promptMessage },
+      });
+
+      const result = await Keychain.getGenericPassword({
+        service: 'awsToDoRN_biometric',
+        authenticationPrompt: { title: promptMessage },
+      });
+
+      await Keychain.resetGenericPassword({
+        service: 'awsToDoRN_biometric',
+      });
+
+      if (result && result.username === testKey) {
+        await this.updateReAuthTimestamp();
+        return { success: true, method: 'biometric' };
+      } else {
+        return { success: false, method: 'biometric', error: 'Biometric authentication failed' };
+      }
+    } catch (error: any) {
+      try {
+        await Keychain.resetGenericPassword({
+          service: 'awsToDoRN_biometric',
+        });
+      } catch (cleanupError) {
+      }
+
+      if (error.message?.includes('Cancel') || error.message?.includes('cancel')) {
+        return { success: false, method: 'biometric', error: 'User cancelled authentication' };
+      }
+
+      return { success: false, method: 'biometric', error: error.message || 'Biometric authentication error' };
+    }
+  }
+
 
 
   /**
@@ -105,7 +254,6 @@ export class BiometricService {
       await SecureStorage.storePIN(pin);
       return { success: true };
     } catch (error: any) {
-      console.error('Set PIN error:', error);
       return { success: false, error: error.message || 'Failed to set PIN' };
     }
   }
@@ -121,51 +269,30 @@ export class BiometricService {
       }
 
       if (storedPIN === pin) {
-        // Update re-auth timestamp
         await this.updateReAuthTimestamp();
         return { success: true, method: 'pin' };
       } else {
         return { success: false, method: 'pin', error: 'Invalid PIN' };
       }
     } catch (error: any) {
-      console.error('PIN authentication error:', error);
       return { success: false, method: 'pin', error: error.message || 'PIN authentication failed' };
     }
   }
 
   /**
-    * Perform re-authentication using biometric verification with device PIN fallback
-    */
-    async performReAuthentication(): Promise<ReAuthResult> {
-      // Check if re-auth is still valid
-      const isValid = await this.isReAuthValid();
-      if (isValid) {
-        return { success: true, method: 'none' };
-      }
-
-      // Check biometric availability
-      const biometricCheck = await this.isBiometricAvailable();
-
-      // On iOS, use biometrics with PIN fallback
-      if (Platform.OS === 'ios' || biometricCheck.available) {
-        const biometricResult = await this.authenticateWithBiometrics({
-          promptMessage: 'Confirm your identity to access sensitive information',
-          cancelButtonText: 'Cancel',
-          allowDeviceCredentials: true,
-        });
-        return biometricResult;
-      }
-
-      // On Android without biometrics, use PIN
-      // For now, assume PIN is set; in a real app, prompt to set if not
-      const storedPIN = await SecureStorage.getPIN();
-      if (!storedPIN) {
-        return { success: false, method: 'pin', error: 'PIN not configured' };
-      }
-
-      // This will be handled in the UI, so return a special result
-      return { success: false, method: 'pin', error: 'PIN required' };
+   * Perform re-authentication using biometric verification
+   */
+  async performReAuthentication(): Promise<ReAuthResult> {
+    const isValid = await this.isReAuthValid();
+    if (isValid) {
+      return { success: true, method: 'none' };
     }
+
+    return await this.authenticateWithBiometrics({
+        promptMessage: 'Confirm your identity to access sensitive information',
+        cancelButtonText: 'Cancel',
+    });
+  }
 
   /**
    * Check if current re-authentication session is still valid
@@ -176,12 +303,11 @@ export class BiometricService {
       if (!timestamp) return false;
 
       const now = Date.now();
-      const timeDiff = now - parseInt(timestamp);
+      const timeDiff = now - parseInt(timestamp, 10);
       const sessionDuration = 15 * 60 * 1000; // 15 minutes
 
       return timeDiff < sessionDuration;
     } catch (error) {
-      console.error('Re-auth validation check failed:', error);
       return false;
     }
   }
@@ -194,7 +320,6 @@ export class BiometricService {
       const timestamp = Date.now().toString();
       await SecureStorage.storeReAuthTimestamp(timestamp);
     } catch (error) {
-      console.error('Failed to update re-auth timestamp:', error);
     }
   }
 
@@ -205,7 +330,7 @@ export class BiometricService {
     try {
       await SecureStorage.clearReAuthTimestamp();
     } catch (error) {
-      console.error('Failed to clear re-auth state:', error);
+      // Ignore clear errors
     }
   }
 
@@ -218,12 +343,11 @@ export class BiometricService {
       if (!timestamp) return 0;
 
       const now = Date.now();
-      const timeDiff = now - parseInt(timestamp);
+      const timeDiff = now - parseInt(timestamp, 10);
       const sessionDuration = 15 * 60 * 1000; // 15 minutes
 
       return Math.max(0, sessionDuration - timeDiff);
     } catch (error) {
-      console.error('Failed to get re-auth time remaining:', error);
       return 0;
     }
   }
