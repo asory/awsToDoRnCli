@@ -64,13 +64,21 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 52,
     marginVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primaryButton: {
     backgroundColor: '#007AFF',
@@ -83,6 +91,8 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   text: {
     fontSize: 16,
