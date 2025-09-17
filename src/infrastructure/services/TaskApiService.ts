@@ -156,12 +156,14 @@ export class TaskApiService implements TaskRepository {
 
   deleteTask = async (id: string, userId: string): Promise<void> => {
     const allTasks = await LocalStorage.getTasks(userId);
-    
+    let serverDeleteSuccess = false;
+
     try {
       const online = await isOnline();
 
       if (online) {
         await client.models.Task.delete({ id });
+        serverDeleteSuccess = true;
       } else {
         const taskToDelete = allTasks.find(t => t.id === id);
 
@@ -173,17 +175,25 @@ export class TaskApiService implements TaskRepository {
             timestamp: Date.now(),
             userId,
           });
+          serverDeleteSuccess = true; // For offline, consider it success for local removal
         }
       }
     } catch (error: any) {
-      console.error('Error deleting task:', error);
+      console.error('Error deleting task on server:', error);
+      console.error('Error details:', error.message, error.errors);
+      serverDeleteSuccess = false;
     }
 
-    try {
-      const filteredTasks = allTasks.filter(t => t.id !== id);
-      await LocalStorage.saveTasks(userId, filteredTasks);
-    } catch (localError) {
-      console.error('Local storage delete failed:', localError);
+    if (serverDeleteSuccess) {
+      try {
+        const filteredTasks = allTasks.filter(t => t.id !== id);
+        await LocalStorage.saveTasks(userId, filteredTasks);
+      } catch (localError) {
+        console.error('Local storage delete failed:', localError);
+      }
+    } else {
+      // If server delete failed, don't remove locally to avoid data loss
+      console.warn('Server delete failed, keeping task locally');
     }
   };
 

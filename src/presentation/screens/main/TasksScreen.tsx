@@ -25,10 +25,11 @@ const TasksScreen = () => {
     refetch,
     toggleTaskCompletion,
     createTask,
+    deleteTask,
     fetchTasks,
   } = useTasks();
 
-  const { hasWriteScope } = useScopes();
+  const { hasWriteScope, hasAdminScope } = useScopes();
 
   const [inputText, setInputText] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -58,14 +59,6 @@ const TasksScreen = () => {
   const renderTask = ({ item }: { item: Task }) => (
     <View style={styles.taskItem}>
       <View style={styles.taskContent}>
-        <Text style={[styles.taskTitle, item.isDone && styles.taskCompleted]}>
-          {item.content}
-        </Text>
-        <Text style={styles.taskDate}>
-          {new Date(item.createdAt).toLocaleDateString()}
-        </Text>
-      </View>
-      <View style={styles.taskActions}>
         <TouchableOpacity
           style={styles.checkbox}
           onPress={() => {
@@ -79,6 +72,25 @@ const TasksScreen = () => {
             ]}
           />
         </TouchableOpacity>
+        <View style={styles.textContainer}>
+          <Text style={[styles.taskTitle, item.isDone && styles.taskCompleted]}>
+            {item.content}
+          </Text>
+          <Text style={styles.taskDate}>
+            {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.taskActions}>
+        {hasAdminScope() && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteTask(item.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.deleteText}>🗑️</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -124,6 +136,13 @@ const TasksScreen = () => {
         Alert.alert('Error', 'Failed to create task');
       }
     }
+  };
+
+  const handleDeleteTask = (id: string) => {
+    Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteTask(id) },
+    ]);
   };
 
   const handleRefresh = async () => {
@@ -270,6 +289,12 @@ const styles = StyleSheet.create({
   },
   taskContent: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+    marginLeft: 12,
   },
   taskTitle: {
     fontSize: 16,
@@ -284,7 +309,15 @@ const styles = StyleSheet.create({
   taskActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 4,
+  },
+  deleteText: {
+    fontSize: 16,
+    color: '#fff',
   },
   taskDescription: {
     fontSize: 14,

@@ -19,6 +19,10 @@ export const useScopes = () => {
     return hasScope('tasks:read');
   };
 
+  const hasAdminScope = (): boolean => {
+    return hasScope('aws.cognito.signin.user.admin');
+  };
+
   const getAllScopes = (): string[] => {
     if (!tokens?.accessToken) return [];
     return ScopeUtils.extractScopesFromToken(tokens.accessToken);
@@ -28,6 +32,7 @@ export const useScopes = () => {
     hasScope,
     hasWriteScope,
     hasReadScope,
+    hasAdminScope,
     getAllScopes,
   };
 };

@@ -12,7 +12,7 @@ export const useTasks = () => {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
+  const [_isOnline, setIsOnline] = useState(true);
   const [error, setError] = useState<any>(null);
 
   const taskUseCases = useMemo(() => {
@@ -58,7 +58,6 @@ export const useTasks = () => {
   const createTask = async (data: CreateTaskData) => {
     if (!userId) return;
 
-    setIsLoading(true);
     setError(null);
     try {
       const newTask = await taskUseCases.createTask(data, userId);
@@ -67,15 +66,12 @@ export const useTasks = () => {
       console.error('Create task error:', err);
       setError(err);
       throw err;
-    } finally {
-      setIsLoading(false);
-    }
+    } 
   };
 
   const updateTask = async (id: string, data: UpdateTaskData) => {
     if (!userId) return;
 
-    setIsLoading(true);
     setError(null);
     try {
       const updatedTask = await taskUseCases.updateTask(id, data, userId);
@@ -85,7 +81,6 @@ export const useTasks = () => {
       setError(err);
       throw err;
     } finally {
-      setIsLoading(false);
     }
   };
 
