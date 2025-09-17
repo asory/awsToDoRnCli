@@ -5,15 +5,10 @@ import { Provider } from 'react-redux';
 import { store } from './src/application/store';
 import AppNavigator from './src/presentation/navigation/AppNavigator';
 import LoadingScreen from './src/presentation/screens/LoadingScreen';
-import { configureAmplify } from './src/shared/config/aws-config';
 import { useAuth } from './src/presentation/hooks/useAuth';
 import { useAppStateAuth } from './src/presentation/hooks/useAppStateAuth';
 
 function App() {
-  useEffect(() => {
-    configureAmplify();
-  }, []);
-
   return (
     <Provider store={store}>
       <SafeAreaProvider>

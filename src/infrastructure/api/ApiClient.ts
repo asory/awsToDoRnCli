@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { SecureStorage } from '../storage/SecureStorage';
 import { Logger } from '../monitoring/Logger';
-import { Config } from '../../shared/config/Config';
+import amplifyConfig from '../../../backend/amplify_outputs.json';
 import { store } from '../../application/store';
 import { refreshTokenSuccess, logout } from '../../application/slices/authSlice';
 import { CognitoService } from '../services/CognitoService';
@@ -11,7 +11,9 @@ export class ApiClient {
   private baseURL: string;
   private static instance: ApiClient;
 
-  constructor(baseURL: string = Config.API_BASE_URL) {
+  constructor(baseURL: string = (amplifyConfig as any).data?.url ||
+    (amplifyConfig as any).api?.[0]?.endpoint ||
+    'https://localhost:3000/api') {
     this.baseURL = baseURL;
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -24,7 +26,6 @@ export class ApiClient {
     this.setupInterceptors();
   }
 
-  // Singleton pattern to ensure consistent instance
   static getInstance(baseURL?: string): ApiClient {
     if (!ApiClient.instance) {
       ApiClient.instance = new ApiClient(baseURL);
@@ -59,11 +60,10 @@ export class ApiClient {
            originalRequest._retry = true;
 
            try {
-             // Try to refresh token
              const refreshToken = await SecureStorage.getToken('refresh');
              if (!refreshToken) {
                Logger.error('No refresh token available for automatic refresh');
-               // Clear stored tokens and logout user
+
                await SecureStorage.removeToken('access');
                await SecureStorage.removeToken('refresh');
                store.dispatch(logout());
@@ -99,11 +99,8 @@ export class ApiClient {
           }
         }
 
-        // Handle 403 Forbidden errors (insufficient scopes)
         if (error.response?.status === 403) {
           Logger.error('403 Forbidden: Insufficient permissions', error.response.data);
-          // TODO can emit an event or call a callback here to notify the UI
-          // For now, just log and reject
         }
 
         return Promise.reject(error);
@@ -131,21 +128,14 @@ export class ApiClient {
     return response.data;
   }
 
-  // Method to clear authentication tokens from memory and headers
   clearAuthTokens() {
-    // Remove authorization header from default headers
-    delete this.client.defaults.headers.common['Authorization'];
 
-    // Clear any cached tokens in interceptors
+    delete this.client.defaults.headers.common.Authorization;
     this.client.interceptors.request.clear();
-
-    // Re-setup interceptors without auth token
     this.setupInterceptors();
 
-    console.log('API client authentication tokens cleared from memory');
   }
 
-  // Method to update base URL (useful for different environments)
   setBaseURL(url: string) {
     this.baseURL = url;
     this.client.defaults.baseURL = url;

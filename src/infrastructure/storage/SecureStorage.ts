@@ -1,9 +1,14 @@
 import * as Keychain from 'react-native-keychain';
+import { Platform } from 'react-native';
+import EncryptedStorage from 'react-native-encrypted-storage';
 
 interface TokenData {
   token: string;
   expiresAt: number;
 }
+
+// Android keychain has a 256 byte limit, so we need to chunk large values
+const ANDROID_CHUNK_SIZE = 200; // Leave some buffer
 
 export class SecureStorage {
   private static readonly TOKEN_NAMESPACE = 'awsToDoRN_tokens';
@@ -11,22 +16,46 @@ export class SecureStorage {
   private static readonly REFRESH_TOKEN_KEY = `${SecureStorage.TOKEN_NAMESPACE}_refreshToken`;
   private static readonly TOKEN_METADATA_KEY = `${SecureStorage.TOKEN_NAMESPACE}_metadata`;
 
+  /**
+   * Store large tokens using EncryptedStorage on Android (no size limit)
+   */
+  private static async setLargeAndroidItem(key: string, value: string): Promise<void> {
+    await EncryptedStorage.setItem(key, value);
+  }
+
+  /**
+   * Retrieve large tokens from EncryptedStorage on Android
+   */
+  private static async getLargeAndroidItem(key: string): Promise<string | null> {
+    try {
+      const result = await EncryptedStorage.getItem(key);
+      return result;
+    } catch (error) {
+      console.error('Error retrieving large Android item:', error);
+      return null;
+    }
+  }
+
   static async setSecureItem(key: string, value: string): Promise<void> {
     try {
-      // Enhanced security options for token storage
       const isTokenKey = key.includes('_accessToken') || key.includes('_refreshToken');
 
-      const options: Keychain.Options = {
-        service: 'awsToDoRN',
-        // For tokens, require biometric authentication on iOS and user authentication on Android
-        accessControl: isTokenKey ? Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE : Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
-        // Make tokens accessible only when device is unlocked
-        accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
-        // Use hardware-backed storage when available
-        securityLevel: Keychain.SECURITY_LEVEL.SECURE_HARDWARE,
-      };
+      if (Platform.OS === 'android' && value.length > ANDROID_CHUNK_SIZE) {
+        await this.setLargeAndroidItem(key, value);
+      } else {
+        // Normal storage for iOS or small values
+        const options: Keychain.Options = {
+          service: 'awsToDoRN',
+          // For tokens, require biometric authentication on iOS and user authentication on Android
+          accessControl: isTokenKey ? Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE : Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+          // Make tokens accessible only when device is unlocked
+          accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
+          // Use hardware-backed storage when available
+          securityLevel: Keychain.SECURITY_LEVEL.SECURE_HARDWARE,
+        };
 
-      await Keychain.setGenericPassword(key, value, options);
+        await Keychain.setGenericPassword(key, value, options);
+      }
     } catch (error) {
       console.error('Secure storage set error:', error);
       throw error;
@@ -35,6 +64,13 @@ export class SecureStorage {
 
   static async getSecureItem(key: string): Promise<string | null> {
     try {
+      if (Platform.OS === 'android') {
+        const encryptedResult = await this.getLargeAndroidItem(key);
+        if (encryptedResult) {
+          return encryptedResult;
+        }
+      }
+
       const credentials = await Keychain.getGenericPassword({
         service: 'awsToDoRN',
       });
@@ -50,8 +86,16 @@ export class SecureStorage {
     }
   }
 
-  static async removeSecureItem(_key: string): Promise<void> {
+  static async removeSecureItem(key: string): Promise<void> {
     try {
+      if (Platform.OS === 'android') {
+        try {
+          await EncryptedStorage.removeItem(key);
+        } catch (error) {
+          // Item might not exist in EncryptedStorage, continue
+        }
+      }
+
       await Keychain.resetGenericPassword({
         service: 'awsToDoRN',
       });
@@ -66,6 +110,10 @@ export class SecureStorage {
 
   static async clearAll(): Promise<void> {
     try {
+      if (Platform.OS === 'android') {
+        await EncryptedStorage.clear();
+      }
+
       await Keychain.resetGenericPassword();
     } catch (error) {
       console.error('Secure storage clear error:', error);

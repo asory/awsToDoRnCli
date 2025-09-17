@@ -14,8 +14,6 @@ const AppNavigator = () => {
     (state: RootState) => state.auth,
   );
 
-  console.log('🏠 Navigator: Auth state -', { isAuthenticated, isLoading });
-
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

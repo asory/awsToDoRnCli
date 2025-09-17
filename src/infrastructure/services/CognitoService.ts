@@ -80,7 +80,6 @@ export class CognitoService implements AuthRepository {
       // Invalidate session 
       await signOut({ global: true }); 
 
-      // Clear all data
       await SecureStorage.clearAll();
 
     } catch (error: any) {
@@ -176,7 +175,6 @@ export class CognitoService implements AuthRepository {
 
   async forgotPassword(email: string): Promise<void> {
     try {
-      const { resetPassword } = await import('aws-amplify/auth');
       await resetPassword({ username: email });
     } catch (error: any) {
       console.error('Forgot password failed', error);
@@ -252,6 +250,7 @@ export class CognitoService implements AuthRepository {
 
 
   private extractTokens(session: any): AuthTokens {
+
     if (!session || !session.tokens) {
       throw new Error('Invalid session: No tokens available');
     }
@@ -265,6 +264,7 @@ export class CognitoService implements AuthRepository {
     }
 
     const expiresIn = session.tokens.accessToken?.payload?.exp * 1000 || 0;
+
     if (expiresIn && expiresIn < Date.now()) {
       throw new Error('Token has expired');
     }
@@ -279,10 +279,6 @@ export class CognitoService implements AuthRepository {
       tokenType: 'Bearer',
       scopes,
     };
-  }
-
-  private extractScopesFromToken(token: string): string[] {
-    return ScopeUtils.extractScopesFromToken(token);
   }
 
   async hasScope(requiredScope: string, userScopes?: string[]): Promise<boolean> {
@@ -316,7 +312,6 @@ export class CognitoService implements AuthRepository {
   async signUp(params: any): Promise<any> {
     try {
       const result = await signUp(params);
-      console.log('✅ Usuario registrado:', { isSignUpComplete: result.isSignUpComplete, userId: result.userId });
       return { isSignUpComplete: result.isSignUpComplete, userId: result.userId, nextStep: result.nextStep };
     } catch (error: any) {
       console.error('❌ Error en registro:', error);
@@ -328,7 +323,6 @@ export class CognitoService implements AuthRepository {
   async confirmSignUp(params: any): Promise<any> {
     try {
       const result = await confirmSignUp(params);
-      console.log('✅ Registro confirmado:', { isSignUpComplete: result.isSignUpComplete });
       return { isSignUpComplete: result.isSignUpComplete, nextStep: result.nextStep };
     } catch (error: any) {
       console.error('❌ Error confirmando registro:', error);
@@ -340,7 +334,6 @@ export class CognitoService implements AuthRepository {
   async signIn(params: any): Promise<any> {
     try {
       const result = await signIn(params);
-      console.log('✅ Sesión iniciada:', { isSignedIn: result.isSignedIn });
       return { isSignedIn: result.isSignedIn, nextStep: result.nextStep };
     } catch (error: any) {
       console.error('❌ Error iniciando sesión:', error);

@@ -1,9 +1,7 @@
-import { Config } from '../../shared/config/Config';
-
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export class Logger {
-  private static logLevel: LogLevel = (Config.LOG_LEVEL as LogLevel) || 'info';
+  private static logLevel: LogLevel = 'info';
   private static logLevels = {
     debug: 0,
     info: 1,

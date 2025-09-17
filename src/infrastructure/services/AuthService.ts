@@ -1,12 +1,6 @@
 import { SignUpInput, SignInInput, ConfirmSignUpInput } from 'aws-amplify/auth';
-import { ScopeUtils } from '../../shared/utils/ScopeUtils';
 import { CognitoService } from './CognitoService';
-
-export interface User {
-  username: string;
-  email?: string;
-  attributes?: Record<string, any>;
-}
+import { User } from '../../core/entities/User';
 
 export interface AuthTokens {
   accessToken: string;
@@ -72,13 +66,7 @@ class AuthService {
     return await this.cognitoService.getAuthTokens();
   }
 
-  /**
-   * Extraer scopes del token JWT
-   */
-  private extractScopesFromToken(token: string): string[] {
-    return ScopeUtils.extractScopesFromToken(token);
-  }
-
+ 
 
   /**
    * Verificar si el usuario tiene un scope específico

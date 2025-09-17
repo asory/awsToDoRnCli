@@ -1,43 +1,52 @@
-/**
- * Utility class for handling scope extraction and mapping from JWT tokens
- */
 export class ScopeUtils {
   private static readonly groupScopeMapping: { [key: string]: string[] } = {
-    'owner': ['tasks:read', 'tasks:write'],
-    'user': ['tasks:read'],
-    'guest': [],
+    'users': ['tasks:read'],
+    'admins': ['tasks:read', 'tasks:write'],
   };
 
-
-  static extractScopesFromToken(token: string): string[] {
+  static extractScopesFromToken = (token: string): string[] => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const scopes: string[] = [];
 
       if (payload.scope) {
-        scopes.push(...payload.scope.split(' '));
+        const scopeArray = payload.scope.split(' ');
+        scopes.push(...scopeArray);
       }
 
       if (payload['cognito:groups']) {
-        payload['cognito:groups'].forEach((group: string) => {
-          const groupScopes = this.mapGroupToScopes(group);
+        let groups: string[] = [];
+        if (Array.isArray(payload['cognito:groups'])) {
+          groups = payload['cognito:groups'];
+        } else if (typeof payload['cognito:groups'] === 'string') {
+          groups = payload['cognito:groups'].split(',');
+        }
+
+        groups.forEach((group: string) => {
+          const groupScopes = ScopeUtils.mapGroupToScopes(group.trim());
           scopes.push(...groupScopes);
         });
       }
 
       if (payload['custom:scopes']) {
-        scopes.push(...payload['custom:scopes'].split(' '));
+        const customScopes = payload['custom:scopes'].split(' ');
+        scopes.push(...customScopes);
       }
 
-      return [...new Set(scopes)]; // Remove duplicates
+      const finalScopes = [...new Set(scopes)];
+
+      if (finalScopes.length === 0) {
+        return ['tasks:read'];
+      }
+
+      return finalScopes;
     } catch (error) {
-      console.error('❌ Error extracting scopes from token:', error);
+      console.error('Error extracting scopes from token:', error);
       return [];
     }
-  }
+  };
 
-
-  static mapGroupToScopes(group: string): string[] {
-    return this.groupScopeMapping[group] || [];
-  }
+  static mapGroupToScopes = (group: string): string[] => {
+    return ScopeUtils.groupScopeMapping[group] || [];
+  };
 }

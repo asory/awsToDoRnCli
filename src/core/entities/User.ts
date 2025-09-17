@@ -2,6 +2,8 @@ export interface User {
   id: string;
   email: string;
   username?: string;
+  attributes?: Record<string, any>;
+
 }
 
 export interface AuthTokens {
