@@ -8,6 +8,7 @@ import SetPINModal from '../../components/SetPINModal';
 import ProtectedDataView from '../../components/ProtectedDataView';
 import { useScopes } from '../../hooks/useScopes';
 import { reAuthService } from '../../../infrastructure/services/BiometricService';
+import * as Sentry from '@sentry/react-native';
 
 const ProfileScreen = () => {
   const user = useSelector((state: RootState) => state.auth.user);
@@ -125,6 +126,12 @@ const ProfileScreen = () => {
 
         <View style={styles.section}>
           <Button title="Logout" onPress={handleLogout} variant="danger" />
+          <Button
+            title="Try!"
+            onPress={() => {
+              Sentry.captureException(new Error('First error'));
+            }}
+          />
         </View>
       </ScrollView>
 

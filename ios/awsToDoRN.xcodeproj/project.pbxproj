@@ -183,7 +183,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\n#### HACK - fix for the WITH_ENVIRONMENT script not allowing passed variables ####\n# Start with a default\nNODE_BINARY=$(command -v node || echo \"\")\nexport NODE_BINARY\n\n# Override the default with the global environment\nENV_PATH=\"$PODS_ROOT/../.xcode.env\"\nif [ -f \"$ENV_PATH\" ]; then\n    source \"$ENV_PATH\"\nfi\n\n# Override the global with the local environment\nLOCAL_ENV_PATH=\"${ENV_PATH}.local\"\nif [ -f \"$LOCAL_ENV_PATH\" ]; then\n    source \"$LOCAL_ENV_PATH\"\nfi\n##### END OF HACK #####\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\nSENTRY_XCODE=\"../node_modules/@sentry/react-native/scripts/sentry-xcode.sh\"\n\n#### ORIGINAL SCRIPT\n# /bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n\n# SENTRY SCRIPT\n/bin/sh -c \"$WITH_ENVIRONMENT $BUNDLE_REACT_NATIVE\"\n";
+			shellScript = "set -e\n\n#### HACK - fix for the WITH_ENVIRONMENT script not allowing passed variables ####\n# Start with a default\nNODE_BINARY=$(command -v node || echo \"\")\nexport NODE_BINARY\n\n# Override the default with the global environment\nENV_PATH=\"$PODS_ROOT/../.xcode.env\"\nif [ -f \"$ENV_PATH\" ]; then\n    source \"$ENV_PATH\"\nfi\n\n# Override the global with the local environment\nLOCAL_ENV_PATH=\"${ENV_PATH}.local\"\nif [ -f \"$LOCAL_ENV_PATH\" ]; then\n    source \"$LOCAL_ENV_PATH\"\nfi\n##### END OF HACK #####\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\nSENTRY_XCODE=\"../node_modules/@sentry/react-native/scripts/sentry-xcode.sh\"\n\n#### ORIGINAL SCRIPT\n# /bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n\n# SENTRY SCRIPT\n/bin/sh -c \"$SENTRY_XCODE $REACT_NATIVE_XCODE\"\n";
 		};
 		139EC3282F532A6726F6D146 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -277,6 +277,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = awsToDoRN/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -304,6 +305,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = awsToDoRN/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
