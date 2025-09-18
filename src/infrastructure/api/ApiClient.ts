@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { SecureStorage } from '../storage/SecureStorage';
-import { Logger } from '../monitoring/Logger';
 import amplifyConfig from '../../../backend/amplify_outputs.json';
 import { store } from '../../application/store';
 import { refreshTokenSuccess, logout } from '../../application/slices/authSlice';
@@ -43,7 +42,7 @@ export class ApiClient {
             config.headers.Authorization = `Bearer ${token}`;
           }
         } catch (error) {
-          Logger.error('Error getting auth token:', error as Error);
+          console.error('Error getting auth token:', error as Error);
         }
         return config;
       },
@@ -62,7 +61,7 @@ export class ApiClient {
            try {
              const refreshToken = await SecureStorage.getToken('refresh');
              if (!refreshToken) {
-               Logger.error('No refresh token available for automatic refresh');
+               console.error('No refresh token available for automatic refresh');
 
                await SecureStorage.removeToken('access');
                await SecureStorage.removeToken('refresh');
@@ -88,19 +87,19 @@ export class ApiClient {
 
              return this.client(originalRequest);
            } catch (refreshError) {
-            Logger.error('Token refresh failed:', refreshError as Error);
+            console.error('Token refresh failed:', refreshError as Error);
             try {
               await SecureStorage.removeToken('access');
               await SecureStorage.removeToken('refresh');
               store.dispatch(logout());
             } catch (cleanupError) {
-              Logger.error('Error during logout cleanup:', cleanupError as Error);
+              console.error('Error during logout cleanup:', cleanupError as Error);
             }
           }
         }
 
         if (error.response?.status === 403) {
-          Logger.error('403 Forbidden: Insufficient permissions', error.response.data);
+          console.error('403 Forbidden: Insufficient permissions', error.response.data);
         }
 
         return Promise.reject(error);
